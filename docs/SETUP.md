@@ -4,6 +4,8 @@ This guide shows how to automatically create and email certificates using Google
 
 No programming knowledge is required. Follow the steps in order.
 
+Bahasa Malaysia version: [Click here](SETUP_MS.md)
+
 ---
 
 ## Before You Start
@@ -341,24 +343,34 @@ Then use:
 
 ---
 
-## Step 10 — Change the Email Message
+## Step 10 — Check the Email Settings
 
-Still inside the settings section, you can change:
+You can change:
 
 ```javascript
 senderName: 'Urus Setia Program',
 emailSubject: 'Sijil Penyertaan Program',
 ```
 
-You may also edit the email message inside:
+The default email message is:
 
-```javascript
-emailBody: ({ name, certificateId }) => [
-  ...
-].join('\n')
+```text
+Assalamualaikum / Salam sejahtera,
+
+Tuan/Puan,
+
+Dilampirkan ialah sijil penyertaan bagi program:
+
+Program: [Nama Program]
+Tarikh: [Tarikh]
+Tempat: [Tempat]
+
+Terima kasih.
+
+Urus Setia Program
 ```
 
-If you are not comfortable changing this part, leave it as it is.
+The program name, date and venue are taken automatically from `TEMPLATE_CONSTANTS`.
 
 ---
 
@@ -513,8 +525,6 @@ Also check that `nama_program` exists inside `TEMPLATE_CONSTANTS`.
 ### Certificate Status says `ERROR`
 
 Look at the `Certificate Error` column in the same row.
-
-It normally tells you what went wrong.
 
 Common causes include:
 
