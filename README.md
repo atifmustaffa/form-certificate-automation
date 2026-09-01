@@ -13,9 +13,9 @@ When a participant submits the form, the system can automatically:
 
 No more copying names, creating PDFs, and sending certificates one by one.
 
-## Start Here
+## Click Here to Start
 
-➡️ **[Open the Step-by-Step Setup Guide](docs/SETUP.md)**
+Step-by-Step Setup Guide: [Click here for English](docs/SETUP.md) | [Click here for Bahasa Malaysia](docs/SETUP_MS.md)
 
 The setup guide is written for normal Google users. No programming knowledge is required.
 
@@ -30,7 +30,8 @@ The setup guide is written for normal Google users. No programming knowledge is 
 ## Files
 
 - [`Code.gs`](Code.gs) — the automation script to copy into Google Apps Script.
-- [`docs/SETUP.md`](docs/SETUP.md) — complete setup instructions.
+- [`docs/SETUP.md`](docs/SETUP.md) — English setup guide.
+- [`docs/SETUP_MS.md`](docs/SETUP_MS.md) — Bahasa Malaysia setup guide.
 
 ## Main Features
 
@@ -47,4 +48,58 @@ The setup guide is written for normal Google users. No programming knowledge is 
 
 ## Credits
 
-Created and maintained by [Atif Mustaffa (@atifmustaffa)](https://github.com/atifmustaffa).
+- Atif Mustaffa
+
+---
+
+# Automasi Sijil daripada Google Form
+
+Cipta dan hantar sijil secara automatik melalui e-mel berdasarkan respons Google Form.
+
+Apabila peserta menghantar borang, sistem boleh secara automatik:
+
+1. Membaca maklumat peserta daripada Google Sheets.
+2. Memasukkan maklumat tersebut ke dalam templat sijil Google Slides.
+3. Menghasilkan sijil dalam bentuk PDF.
+4. Menyimpan PDF ke Google Drive.
+5. Menghantar sijil kepada peserta melalui e-mel.
+6. Merekod status penghantaran dalam Google Sheets.
+
+Tidak perlu lagi menyalin nama, menghasilkan PDF, dan menghantar sijil satu per satu.
+
+## Klik Di Sini untuk Mula
+
+Panduan Langkah demi Langkah: [Click here for English](docs/SETUP.md) | [Click here for Bahasa Malaysia](docs/SETUP_MS.md)
+
+Panduan ini ditulis untuk pengguna Google biasa. Tiada pengetahuan pengaturcaraan diperlukan.
+
+## Apa yang Diperlukan
+
+- Google Form
+- Google Sheets
+- Google Slides
+- Google Drive
+- Akaun Google yang boleh menggunakan Google Apps Script
+
+## Fail
+
+- [`Code.gs`](Code.gs) — skrip automasi untuk disalin ke Google Apps Script.
+- [`docs/SETUP.md`](docs/SETUP.md) — panduan dalam Bahasa Inggeris.
+- [`docs/SETUP_MS.md`](docs/SETUP_MS.md) — panduan dalam Bahasa Malaysia.
+
+## Fungsi Utama
+
+- Menghasilkan sijil secara automatik selepas borang dihantar.
+- Menggunakan reka bentuk sijil Google Slides anda sendiri.
+- Menghantar sijil PDF secara automatik melalui e-mel.
+- Menyimpan salinan setiap sijil dalam Google Drive.
+- Menggunakan nama lajur Google Sheet secara automatik.
+- Menyokong maklumat tetap program seperti nama program, tarikh dan tempat.
+- Boleh menukar nama peserta kepada huruf besar secara automatik.
+- Boleh memformat nombor Kad Pengenalan Malaysia dengan tanda sempang secara automatik.
+- Mengelakkan sijil yang telah ditanda sebagai dihantar daripada dihantar semula secara automatik.
+- Merekod ralat dalam Sheet respons untuk memudahkan semakan.
+
+## Kredit
+
+- Atif Mustaffa
