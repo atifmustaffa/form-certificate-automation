@@ -13,7 +13,7 @@ When a participant submits the form, the system can automatically:
 
 No more copying names, creating PDFs, and sending certificates one by one.
 
-## Click Here to Start
+## Start
 
 Step-by-Step Setup Guide: [Click here for English](docs/SETUP.md) | [Click here for Bahasa Malaysia](docs/SETUP_MS.md)
 
@@ -52,7 +52,7 @@ The setup guide is written for normal Google users. No programming knowledge is 
 
 ---
 
-# Automasi Sijil daripada Google Form
+# Automasi Penjanaan Sijil
 
 Cipta dan hantar sijil secara automatik melalui e-mel berdasarkan respons Google Form.
 
@@ -67,13 +67,13 @@ Apabila peserta menghantar borang, sistem boleh secara automatik:
 
 Tidak perlu lagi menyalin nama, menghasilkan PDF, dan menghantar sijil satu per satu.
 
-## Klik Di Sini untuk Mula
+## Mula
 
-Panduan Langkah demi Langkah: [Click here for English](docs/SETUP.md) | [Click here for Bahasa Malaysia](docs/SETUP_MS.md)
+Panduan langkah demi langkah: [Klik di sini untuk Bahasa Inggeris](docs/SETUP.md) | [Klik di sini untuk Bahasa Malaysia](docs/SETUP_MS.md)
 
 Panduan ini ditulis untuk pengguna Google biasa. Tiada pengetahuan pengaturcaraan diperlukan.
 
-## Apa yang Diperlukan
+## Apa Yang Diperlukan
 
 - Google Form
 - Google Sheets
