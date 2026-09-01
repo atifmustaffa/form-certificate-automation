@@ -23,18 +23,7 @@ const CONFIG = {
 
   // Email settings.
   senderName: 'Urus Setia Program',
-  emailSubject: 'Sijil Penyertaan Program',
-  emailBody: ({ name, certificateId }) => [
-    `Assalamualaikum / Salam sejahtera ${name},`,
-    '',
-    'Dilampirkan sijil penyertaan anda bagi program yang telah dihadiri.',
-    '',
-    `No. Sijil: ${certificateId}`,
-    '',
-    'Terima kasih.',
-    '',
-    'Urus Setia Program'
-  ].join('\n')
+  emailSubject: 'Sijil Penyertaan Program'
 };
 
 // Fixed information shared by every certificate.
@@ -57,9 +46,6 @@ const SYSTEM_COLUMNS = {
   error: 'Certificate Error'
 };
 
-/**
- * Runs automatically when a Google Form response is submitted.
- */
 function onFormSubmit(e) {
   if (!e?.range) {
     throw new Error(
@@ -77,9 +63,6 @@ function onFormSubmit(e) {
   }
 }
 
-/**
- * Generates and emails one certificate from one response row.
- */
 function processRow(sheet, row) {
   ensureSystemColumns(sheet);
 
@@ -96,7 +79,6 @@ function processRow(sheet, row) {
 
   const status = String(data[SYSTEM_COLUMNS.status] ?? '').trim();
 
-  // Do not automatically resend completed or currently processing rows.
   if (status === 'SENT' || status === 'PROCESSING') {
     return;
   }
@@ -161,8 +143,6 @@ function processRow(sheet, row) {
     replaceSheetPlaceholders(presentation, data);
 
     presentation.saveAndClose();
-
-    // Give Google Slides a short moment to finish saving before PDF export.
     Utilities.sleep(1000);
 
     const displayName = CONFIG.uppercaseName
@@ -178,13 +158,26 @@ function processRow(sheet, row) {
 
     const pdfFile = folder.createFile(pdfBlob);
 
+    const emailBody = [
+      `Assalamualaikum / Salam sejahtera,`,
+      '',
+      'Tuan/Puan,',
+      '',
+      'Dilampirkan ialah sijil penyertaan bagi program:',
+      '',
+      `Program: ${TEMPLATE_CONSTANTS.nama_program}`,
+      `Tarikh: ${TEMPLATE_CONSTANTS.tarikh}`,
+      `Tempat: ${TEMPLATE_CONSTANTS.tempat}`,
+      '',
+      'Terima kasih.',
+      '',
+      CONFIG.senderName
+    ].join('\n');
+
     MailApp.sendEmail({
       to: email,
       subject: CONFIG.emailSubject,
-      body: CONFIG.emailBody({
-        name: displayName,
-        certificateId
-      }),
+      body: emailBody,
       name: CONFIG.senderName,
       attachments: [pdfBlob]
     });
@@ -208,7 +201,6 @@ function processRow(sheet, row) {
 
     throw error;
   } finally {
-    // Keep only the finished PDF, not the temporary Slides copy.
     if (temporarySlidesFile) {
       try {
         temporarySlidesFile.setTrashed(true);
@@ -219,10 +211,6 @@ function processRow(sheet, row) {
   }
 }
 
-/**
- * Replaces fixed event information first.
- * Constants have priority over Sheet placeholders with the same reserved name.
- */
 function replaceTemplateConstants(presentation) {
   Object.entries(TEMPLATE_CONSTANTS).forEach(([key, value]) => {
     presentation.replaceAllText(
@@ -233,16 +221,12 @@ function replaceTemplateConstants(presentation) {
   });
 }
 
-/**
- * Replaces placeholders using Google Sheet column headers.
- */
 function replaceSheetPlaceholders(presentation, data) {
   Object.entries(data).forEach(([header, value]) => {
     if (!header) {
       return;
     }
 
-    // Constants are processed first and always win on collisions.
     const constantMatch = header.match(/^@(.+)@$/);
     if (
       constantMatch &&
@@ -265,9 +249,6 @@ function replaceSheetPlaceholders(presentation, data) {
   });
 }
 
-/**
- * Automatically adds the tracking columns used by the script.
- */
 function ensureSystemColumns(sheet) {
   const existingHeaders = getHeaders(sheet);
 
@@ -319,10 +300,6 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-/**
- * Converts either 010203110123 or 010203-11-0123 to 010203-11-0123.
- * Invalid/unexpected values are left unchanged.
- */
 function formatMalaysianIc(value) {
   const original = String(value ?? '').trim();
   const digits = original.replace(/\D/g, '');
@@ -341,19 +318,12 @@ function sanitizeFilename(value) {
     .trim();
 }
 
-/**
- * Run manually to check the account's remaining daily email quota.
- */
 function checkEmailQuota() {
   console.log(
     `Remaining email quota: ${MailApp.getRemainingDailyQuota()}`
   );
 }
 
-/**
- * Manual test helper.
- * WARNING: this really generates and emails a certificate for the last row.
- */
 function testLastRow() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   processRow(sheet, sheet.getLastRow());
