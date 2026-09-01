@@ -110,6 +110,9 @@ Ejaan mesti sama seperti nama lajur dalam Sheet.
 
 Jika anda menambah soalan baharu dalam Form, anda juga boleh menggunakan nama lajur baharu itu sebagai placeholder tanpa mengubah skrip.
 
+#### Contoh Templat - Google Slides
+<img width="354" height="500" alt="Template Sijil" src="https://github.com/user-attachments/assets/473b34d3-6f75-41d6-91d7-646f7f17946b" />
+
 ---
 
 ## Langkah 4 — Tambah Maklumat Tetap Program
