@@ -110,6 +110,9 @@ The wording must match the Sheet column name exactly.
 
 If you later add a new Form question, you can also use its Sheet column name as a new placeholder without changing the script.
 
+#### Example Template - Google Slides
+<img width="354" height="500" alt="Template Sijil" src="https://github.com/user-attachments/assets/473b34d3-6f75-41d6-91d7-646f7f17946b" />
+
 ---
 
 ## Step 4 — Add Fixed Event Information
