@@ -328,3 +328,111 @@ function testLastRow() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   processRow(sheet, sheet.getLastRow());
 }
+
+function regenerateMissingCertificates() {
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getActiveSheet();
+
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(30000);
+
+    ensureSystemColumns(sheet);
+
+    const headers = getHeaders(sheet);
+    validateRequiredHeaders(headers);
+
+    const lastRow = sheet.getLastRow();
+
+    if (lastRow < 2) {
+      console.log('No submissions found.');
+      return;
+    }
+
+    const statusIndex = headers.indexOf(SYSTEM_COLUMNS.status);
+    const emailIndex = headers.indexOf(CONFIG.emailHeader);
+    const nameIndex = headers.indexOf(CONFIG.nameHeader);
+
+    const rows = sheet
+      .getRange(2, 1, lastRow - 1, headers.length)
+      .getDisplayValues();
+
+    let sent = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    rows.forEach((values, index) => {
+      const row = index + 2;
+
+      const status = String(values[statusIndex] ?? '')
+        .trim()
+        .toUpperCase();
+
+      const email = String(values[emailIndex] ?? '').trim();
+      const name = String(values[nameIndex] ?? '').trim();
+
+      // Ignore completely empty rows.
+      if (!email && !name) {
+        skipped++;
+        return;
+      }
+
+      // Already successfully generated and emailed.
+      if (status === 'SENT') {
+        skipped++;
+        return;
+      }
+
+      // Prevent continuing when Gmail quota is exhausted.
+      if (MailApp.getRemainingDailyQuota() < 1) {
+        console.warn(`Stopped at row ${row}: email quota exhausted.`);
+        return;
+      }
+
+      try {
+        // PROCESSING left behind by an interrupted execution
+        // can safely be retried while this script lock is held.
+        if (status === 'PROCESSING') {
+          setValue(
+            sheet,
+            headers,
+            row,
+            SYSTEM_COLUMNS.status,
+            ''
+          );
+        }
+
+        processRow(sheet, row);
+
+        const finalStatus = String(
+          sheet
+            .getRange(row, statusIndex + 1)
+            .getDisplayValue()
+        ).trim();
+
+        if (finalStatus === 'SENT') {
+          sent++;
+          console.log(`Row ${row}: SENT`);
+        } else {
+          failed++;
+          console.warn(`Row ${row}: ${finalStatus}`);
+        }
+      } catch (error) {
+        failed++;
+
+        console.error(
+          `Row ${row} failed:`,
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+    });
+
+    console.log(
+      `Finished. Sent: ${sent}, Failed: ${failed}, Skipped: ${skipped}`
+    );
+  } finally {
+    lock.releaseLock();
+  }
+}
