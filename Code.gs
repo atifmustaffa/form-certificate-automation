@@ -43,8 +43,80 @@ const SYSTEM_COLUMNS = {
   certificateId: 'Certificate ID',
   certificateUrl: 'Certificate URL',
   sentAt: 'Certificate Sent At',
-  error: 'Certificate Error'
+  error: 'Certificate Error',
+  processingStartedAt: 'Certificate Processing Started At'
 };
+
+const CERTIFICATE_STATUS = {
+  queued: 'QUEUED',
+  processing: 'PROCESSING',
+  sent: 'SENT',
+  error: 'ERROR'
+};
+
+const QUEUE_CONFIG = {
+  batchSize: 5,
+  staleAfterMinutes: 15
+};
+
+const SCRIPT_PROPERTIES = {
+  generationEnabled: 'CERTIFICATE_GENERATION_ENABLED',
+  spreadsheetId: 'CERTIFICATE_SPREADSHEET_ID',
+  sheetId: 'CERTIFICATE_SHEET_ID'
+};
+
+function setupCertificateAutomation() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getActiveSheet();
+
+  ensureSystemColumns(sheet);
+  validateRequiredHeaders(getHeaders(sheet));
+  rememberResponseSheet(sheet);
+
+  const properties = PropertiesService.getScriptProperties();
+
+  if (properties.getProperty(SCRIPT_PROPERTIES.generationEnabled) === null) {
+    properties.setProperty(SCRIPT_PROPERTIES.generationEnabled, 'true');
+  }
+
+  const handlers = ScriptApp
+    .getProjectTriggers()
+    .map(trigger => trigger.getHandlerFunction());
+
+  if (!handlers.includes('onFormSubmit')) {
+    ScriptApp
+      .newTrigger('onFormSubmit')
+      .forSpreadsheet(spreadsheet)
+      .onFormSubmit()
+      .create();
+  }
+
+  if (!handlers.includes('processCertificateQueue')) {
+    ScriptApp
+      .newTrigger('processCertificateQueue')
+      .timeBased()
+      .everyMinutes(1)
+      .create();
+  }
+
+  spreadsheet.toast(
+    'Certificate automation is ready.',
+    'Certificate',
+    5
+  );
+}
+
+function onOpen() {
+  SpreadsheetApp
+    .getUi()
+    .createMenu('Certificate')
+    .addItem('Start Generating', 'startCertificateGeneration')
+    .addItem('Stop Generating', 'stopCertificateGeneration')
+    .addSeparator()
+    .addItem('Process Queue Now', 'processQueueNow')
+    .addItem('Queue Status', 'showQueueStatus')
+    .addToUi();
+}
 
 function onFormSubmit(e) {
   if (!e?.range) {
@@ -53,19 +125,195 @@ function onFormSubmit(e) {
     );
   }
 
+  const sheet = e.range.getSheet();
+  const row = e.range.getRow();
+
+  rememberResponseSheet(sheet);
+
   const lock = LockService.getScriptLock();
 
   try {
     lock.waitLock(30000);
-    processRow(e.range.getSheet(), e.range.getRow());
+    ensureSystemColumns(sheet);
+
+    const headers = getHeaders(sheet);
+    validateRequiredHeaders(headers);
+
+    const values = sheet
+      .getRange(row, 1, 1, headers.length)
+      .getDisplayValues()[0];
+
+    const status = normalizeStatus(
+      values[headers.indexOf(SYSTEM_COLUMNS.status)]
+    );
+    const sentAt = values[headers.indexOf(SYSTEM_COLUMNS.sentAt)];
+
+    if (hasBeenSent(status, sentAt)) {
+      setValue(
+        sheet,
+        headers,
+        row,
+        SYSTEM_COLUMNS.status,
+        CERTIFICATE_STATUS.sent
+      );
+      return;
+    }
+
+    if (status && status !== CERTIFICATE_STATUS.queued) {
+      return;
+    }
+
+    queueRow(sheet, headers, row);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function processCertificateQueue() {
+  const summary = {
+    processed: 0,
+    sent: 0,
+    failed: 0,
+    quotaExhausted: false,
+    stopped: false
+  };
+
+  if (!isCertificateGenerationEnabled()) {
+    summary.stopped = true;
+    return summary;
+  }
+
+  const sheet = getResponseSheet();
+
+  for (let index = 0; index < QUEUE_CONFIG.batchSize; index++) {
+    if (!isCertificateGenerationEnabled()) {
+      summary.stopped = true;
+      break;
+    }
+
+    if (MailApp.getRemainingDailyQuota() < 1) {
+      summary.quotaExhausted = true;
+      break;
+    }
+
+    const row = claimNextQueuedRow(sheet);
+
+    if (!row) {
+      break;
+    }
+
+    summary.processed++;
+
+    try {
+      const result = processRow(sheet, row);
+
+      if (result === CERTIFICATE_STATUS.sent) {
+        summary.sent++;
+      } else if (result === 'QUOTA_EXHAUSTED') {
+        summary.quotaExhausted = true;
+        break;
+      } else if (result === CERTIFICATE_STATUS.error) {
+        summary.failed++;
+      }
+    } catch (error) {
+      summary.failed++;
+      console.error(`Row ${row} failed:`, getErrorMessage(error));
+    }
+  }
+
+  console.log(`Queue worker: ${JSON.stringify(summary)}`);
+  return summary;
+}
+
+function claimNextQueuedRow(sheet) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(30000);
+    ensureSystemColumns(sheet);
+
+    const headers = getHeaders(sheet);
+    validateRequiredHeaders(headers);
+
+    const lastRow = sheet.getLastRow();
+
+    if (lastRow < 2) {
+      return null;
+    }
+
+    const statusIndex = headers.indexOf(SYSTEM_COLUMNS.status);
+    const sentAtIndex = headers.indexOf(SYSTEM_COLUMNS.sentAt);
+    const startedAtIndex = headers.indexOf(
+      SYSTEM_COLUMNS.processingStartedAt
+    );
+    const emailIndex = headers.indexOf(CONFIG.emailHeader);
+    const nameIndex = headers.indexOf(CONFIG.nameHeader);
+
+    const rows = sheet
+      .getRange(2, 1, lastRow - 1, headers.length)
+      .getValues();
+
+    for (let index = 0; index < rows.length; index++) {
+      const values = rows[index];
+      const row = index + 2;
+      const status = normalizeStatus(values[statusIndex]);
+      const sentAt = values[sentAtIndex];
+      const email = String(values[emailIndex] ?? '').trim();
+      const name = String(values[nameIndex] ?? '').trim();
+
+      if (!email && !name) {
+        continue;
+      }
+
+      if (hasBeenSent(status, sentAt)) {
+        if (status !== CERTIFICATE_STATUS.sent) {
+          setValue(
+            sheet,
+            headers,
+            row,
+            SYSTEM_COLUMNS.status,
+            CERTIFICATE_STATUS.sent
+          );
+        }
+
+        continue;
+      }
+
+      const isQueued = status === CERTIFICATE_STATUS.queued || !status;
+      const isStale =
+        status === CERTIFICATE_STATUS.processing &&
+        isStaleProcessing(values[startedAtIndex]);
+
+      if (!isQueued && !isStale) {
+        continue;
+      }
+
+      setValue(
+        sheet,
+        headers,
+        row,
+        SYSTEM_COLUMNS.status,
+        CERTIFICATE_STATUS.processing
+      );
+      setValue(
+        sheet,
+        headers,
+        row,
+        SYSTEM_COLUMNS.processingStartedAt,
+        new Date()
+      );
+      setValue(sheet, headers, row, SYSTEM_COLUMNS.error, '');
+
+      return row;
+    }
+
+    return null;
   } finally {
     lock.releaseLock();
   }
 }
 
 function processRow(sheet, row) {
-  ensureSystemColumns(sheet);
-
   const headers = getHeaders(sheet);
   const values = sheet
     .getRange(row, 1, 1, headers.length)
@@ -77,10 +325,22 @@ function processRow(sheet, row) {
 
   validateRequiredHeaders(headers);
 
-  const status = String(data[SYSTEM_COLUMNS.status] ?? '').trim();
+  const status = normalizeStatus(data[SYSTEM_COLUMNS.status]);
+  const sentAt = data[SYSTEM_COLUMNS.sentAt];
 
-  if (status === 'SENT' || status === 'PROCESSING') {
-    return;
+  if (hasBeenSent(status, sentAt)) {
+    setValue(
+      sheet,
+      headers,
+      row,
+      SYSTEM_COLUMNS.status,
+      CERTIFICATE_STATUS.sent
+    );
+    return CERTIFICATE_STATUS.sent;
+  }
+
+  if (status !== CERTIFICATE_STATUS.processing) {
+    return 'SKIPPED';
   }
 
   const rawName = String(data[CONFIG.nameHeader] ?? '').trim();
@@ -93,17 +353,17 @@ function processRow(sheet, row) {
       row,
       `Missing value for "${CONFIG.nameHeader}".`
     );
-    return;
+    return CERTIFICATE_STATUS.error;
   }
 
   if (!isValidEmail(email)) {
     markError(sheet, headers, row, `Invalid email: ${email}`);
-    return;
+    return CERTIFICATE_STATUS.error;
   }
 
   if (MailApp.getRemainingDailyQuota() < 1) {
-    markError(sheet, headers, row, 'Daily email quota exhausted.');
-    return;
+    queueRow(sheet, headers, row);
+    return 'QUOTA_EXHAUSTED';
   }
 
   const existingCertificateId = String(
@@ -123,10 +383,10 @@ function processRow(sheet, row) {
     SYSTEM_COLUMNS.certificateId,
     certificateId
   );
-  setValue(sheet, headers, row, SYSTEM_COLUMNS.status, 'PROCESSING');
   setValue(sheet, headers, row, SYSTEM_COLUMNS.error, '');
 
   let temporarySlidesFile = null;
+  let emailSent = false;
 
   try {
     const folder = DriveApp.getFolderById(CONFIG.outputFolderId);
@@ -158,8 +418,16 @@ function processRow(sheet, row) {
 
     const pdfFile = folder.createFile(pdfBlob);
 
+    setValue(
+      sheet,
+      headers,
+      row,
+      SYSTEM_COLUMNS.certificateUrl,
+      pdfFile.getUrl()
+    );
+
     const emailBody = [
-      `Assalamualaikum / Salam sejahtera,`,
+      'Assalamualaikum / Salam sejahtera,',
       '',
       'Tuan/Puan,',
       '',
@@ -182,22 +450,32 @@ function processRow(sheet, row) {
       attachments: [pdfBlob]
     });
 
-    setValue(
-      sheet,
-      headers,
-      row,
-      SYSTEM_COLUMNS.certificateUrl,
-      pdfFile.getUrl()
-    );
-    setValue(sheet, headers, row, SYSTEM_COLUMNS.sentAt, new Date());
-    setValue(sheet, headers, row, SYSTEM_COLUMNS.status, 'SENT');
+    emailSent = true;
+    markSent(sheet, headers, row);
+
+    return CERTIFICATE_STATUS.sent;
   } catch (error) {
-    markError(
-      sheet,
-      headers,
-      row,
-      error instanceof Error ? error.message : String(error)
-    );
+    if (emailSent) {
+      try {
+        markSent(sheet, headers, row);
+        return CERTIFICATE_STATUS.sent;
+      } catch (trackingError) {
+        console.error(
+          `Email sent for row ${row}, but SENT could not be recorded:`,
+          getErrorMessage(trackingError)
+        );
+        throw trackingError;
+      }
+    }
+
+    try {
+      markError(sheet, headers, row, getErrorMessage(error));
+    } catch (trackingError) {
+      console.error(
+        `Unable to record the error for row ${row}:`,
+        getErrorMessage(trackingError)
+      );
+    }
 
     throw error;
   } finally {
@@ -209,6 +487,190 @@ function processRow(sheet, row) {
       }
     }
   }
+}
+
+function startCertificateGeneration() {
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(SCRIPT_PROPERTIES.generationEnabled, 'true');
+
+  SpreadsheetApp
+    .getActiveSpreadsheet()
+    .toast('Certificate generation started.', 'Certificate', 5);
+}
+
+function stopCertificateGeneration() {
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(SCRIPT_PROPERTIES.generationEnabled, 'false');
+
+  SpreadsheetApp
+    .getActiveSpreadsheet()
+    .toast('Certificate generation stopped.', 'Certificate', 5);
+}
+
+function processQueueNow() {
+  const ui = SpreadsheetApp.getUi();
+
+  if (!isCertificateGenerationEnabled()) {
+    ui.alert('Certificate generation is currently stopped.');
+    return;
+  }
+
+  const summary = processCertificateQueue();
+
+  SpreadsheetApp
+    .getActiveSpreadsheet()
+    .toast(formatQueueSummary(summary), 'Certificate', 8);
+}
+
+function showQueueStatus() {
+  const sheet = getResponseSheet();
+  const counts = getQueueCounts(sheet);
+  const state = isCertificateGenerationEnabled() ? 'ON' : 'OFF';
+
+  SpreadsheetApp.getUi().alert(
+    [
+      `Certificate Generation: ${state}`,
+      '',
+      `Queued: ${counts.queued}`,
+      `Processing: ${counts.processing}`,
+      `Sent: ${counts.sent}`,
+      `Errors: ${counts.error}`
+    ].join('\n')
+  );
+}
+
+function regenerateMissingCertificates() {
+  const sheet = getResponseSheet();
+  const lock = LockService.getScriptLock();
+  let queued = 0;
+  let skipped = 0;
+
+  try {
+    lock.waitLock(30000);
+    ensureSystemColumns(sheet);
+
+    const headers = getHeaders(sheet);
+    validateRequiredHeaders(headers);
+
+    const lastRow = sheet.getLastRow();
+
+    if (lastRow < 2) {
+      console.log('No submissions found.');
+      return;
+    }
+
+    const statusIndex = headers.indexOf(SYSTEM_COLUMNS.status);
+    const sentAtIndex = headers.indexOf(SYSTEM_COLUMNS.sentAt);
+    const startedAtIndex = headers.indexOf(
+      SYSTEM_COLUMNS.processingStartedAt
+    );
+    const emailIndex = headers.indexOf(CONFIG.emailHeader);
+    const nameIndex = headers.indexOf(CONFIG.nameHeader);
+
+    const rows = sheet
+      .getRange(2, 1, lastRow - 1, headers.length)
+      .getValues();
+
+    rows.forEach((values, index) => {
+      const row = index + 2;
+      const status = normalizeStatus(values[statusIndex]);
+      const email = String(values[emailIndex] ?? '').trim();
+      const name = String(values[nameIndex] ?? '').trim();
+
+      if (!email && !name) {
+        skipped++;
+        return;
+      }
+
+      if (hasBeenSent(status, values[sentAtIndex])) {
+        if (status !== CERTIFICATE_STATUS.sent) {
+          setValue(
+            sheet,
+            headers,
+            row,
+            SYSTEM_COLUMNS.status,
+            CERTIFICATE_STATUS.sent
+          );
+        }
+
+        skipped++;
+        return;
+      }
+
+      const recoverable =
+        !status ||
+        status === CERTIFICATE_STATUS.error ||
+        (status === CERTIFICATE_STATUS.processing &&
+          isStaleProcessing(values[startedAtIndex]));
+
+      if (!recoverable) {
+        skipped++;
+        return;
+      }
+
+      queueRow(sheet, headers, row);
+      queued++;
+    });
+  } finally {
+    lock.releaseLock();
+  }
+
+  const message = `Recovery finished. Queued: ${queued}, Skipped: ${skipped}`;
+  console.log(message);
+  SpreadsheetApp.getActiveSpreadsheet().toast(message, 'Certificate', 8);
+}
+
+function getQueueCounts(sheet) {
+  ensureSystemColumns(sheet);
+
+  const headers = getHeaders(sheet);
+  validateRequiredHeaders(headers);
+
+  const counts = {
+    queued: 0,
+    processing: 0,
+    sent: 0,
+    error: 0
+  };
+
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    return counts;
+  }
+
+  const statusIndex = headers.indexOf(SYSTEM_COLUMNS.status);
+  const sentAtIndex = headers.indexOf(SYSTEM_COLUMNS.sentAt);
+  const emailIndex = headers.indexOf(CONFIG.emailHeader);
+  const nameIndex = headers.indexOf(CONFIG.nameHeader);
+
+  const rows = sheet
+    .getRange(2, 1, lastRow - 1, headers.length)
+    .getDisplayValues();
+
+  rows.forEach(values => {
+    const status = normalizeStatus(values[statusIndex]);
+    const email = String(values[emailIndex] ?? '').trim();
+    const name = String(values[nameIndex] ?? '').trim();
+
+    if (!email && !name) {
+      return;
+    }
+
+    if (hasBeenSent(status, values[sentAtIndex])) {
+      counts.sent++;
+    } else if (!status || status === CERTIFICATE_STATUS.queued) {
+      counts.queued++;
+    } else if (status === CERTIFICATE_STATUS.processing) {
+      counts.processing++;
+    } else if (status === CERTIFICATE_STATUS.error) {
+      counts.error++;
+    }
+  });
+
+  return counts;
 }
 
 function replaceTemplateConstants(presentation) {
@@ -291,9 +753,127 @@ function setValue(sheet, headers, row, header, value) {
   sheet.getRange(row, columnIndex + 1).setValue(value);
 }
 
+function queueRow(sheet, headers, row) {
+  setValue(
+    sheet,
+    headers,
+    row,
+    SYSTEM_COLUMNS.status,
+    CERTIFICATE_STATUS.queued
+  );
+  setValue(sheet, headers, row, SYSTEM_COLUMNS.error, '');
+  setValue(sheet, headers, row, SYSTEM_COLUMNS.processingStartedAt, '');
+}
+
+function markSent(sheet, headers, row) {
+  setValue(sheet, headers, row, SYSTEM_COLUMNS.sentAt, new Date());
+  setValue(
+    sheet,
+    headers,
+    row,
+    SYSTEM_COLUMNS.status,
+    CERTIFICATE_STATUS.sent
+  );
+  setValue(sheet, headers, row, SYSTEM_COLUMNS.error, '');
+  setValue(sheet, headers, row, SYSTEM_COLUMNS.processingStartedAt, '');
+  SpreadsheetApp.flush();
+}
+
 function markError(sheet, headers, row, message) {
-  setValue(sheet, headers, row, SYSTEM_COLUMNS.status, 'ERROR');
+  setValue(
+    sheet,
+    headers,
+    row,
+    SYSTEM_COLUMNS.status,
+    CERTIFICATE_STATUS.error
+  );
   setValue(sheet, headers, row, SYSTEM_COLUMNS.error, message);
+  setValue(sheet, headers, row, SYSTEM_COLUMNS.processingStartedAt, '');
+}
+
+function rememberResponseSheet(sheet) {
+  PropertiesService.getScriptProperties().setProperties({
+    [SCRIPT_PROPERTIES.spreadsheetId]: sheet.getParent().getId(),
+    [SCRIPT_PROPERTIES.sheetId]: String(sheet.getSheetId())
+  });
+}
+
+function getResponseSheet() {
+  const properties = PropertiesService.getScriptProperties();
+  const spreadsheetId = properties.getProperty(
+    SCRIPT_PROPERTIES.spreadsheetId
+  );
+  const sheetId = Number(properties.getProperty(SCRIPT_PROPERTIES.sheetId));
+
+  if (!spreadsheetId || !sheetId) {
+    throw new Error(
+      'Certificate automation is not configured. Run setupCertificateAutomation() from the response sheet.'
+    );
+  }
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = spreadsheet
+    .getSheets()
+    .find(candidate => candidate.getSheetId() === sheetId);
+
+  if (!sheet) {
+    throw new Error(
+      'The configured response sheet was not found. Run setupCertificateAutomation() again.'
+    );
+  }
+
+  return sheet;
+}
+
+function isCertificateGenerationEnabled() {
+  return PropertiesService
+    .getScriptProperties()
+    .getProperty(SCRIPT_PROPERTIES.generationEnabled) !== 'false';
+}
+
+function hasBeenSent(status, sentAt) {
+  return (
+    normalizeStatus(status) === CERTIFICATE_STATUS.sent || Boolean(sentAt)
+  );
+}
+
+function normalizeStatus(value) {
+  return String(value ?? '').trim().toUpperCase();
+}
+
+function isStaleProcessing(startedAt) {
+  if (!startedAt) {
+    return true;
+  }
+
+  const timestamp = startedAt instanceof Date
+    ? startedAt.getTime()
+    : new Date(startedAt).getTime();
+
+  if (!Number.isFinite(timestamp)) {
+    return true;
+  }
+
+  const staleAfterMilliseconds =
+    QUEUE_CONFIG.staleAfterMinutes * 60 * 1000;
+
+  return Date.now() - timestamp >= staleAfterMilliseconds;
+}
+
+function formatQueueSummary(summary) {
+  if (summary.quotaExhausted) {
+    return `Sent: ${summary.sent}. Email quota exhausted; remaining rows stay queued.`;
+  }
+
+  if (summary.stopped) {
+    return `Sent: ${summary.sent}. Generation was stopped.`;
+  }
+
+  return `Processed: ${summary.processed}, Sent: ${summary.sent}, Failed: ${summary.failed}`;
+}
+
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function isValidEmail(email) {
@@ -325,114 +905,39 @@ function checkEmailQuota() {
 }
 
 function testLastRow() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  processRow(sheet, sheet.getLastRow());
-}
-
-function regenerateMissingCertificates() {
-  const sheet = SpreadsheetApp
-    .getActiveSpreadsheet()
-    .getActiveSheet();
-
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getActiveSheet();
+  const row = sheet.getLastRow();
   const lock = LockService.getScriptLock();
+
+  rememberResponseSheet(sheet);
 
   try {
     lock.waitLock(30000);
-
     ensureSystemColumns(sheet);
 
     const headers = getHeaders(sheet);
     validateRequiredHeaders(headers);
 
-    const lastRow = sheet.getLastRow();
+    const values = sheet
+      .getRange(row, 1, 1, headers.length)
+      .getDisplayValues()[0];
+    const status = normalizeStatus(
+      values[headers.indexOf(SYSTEM_COLUMNS.status)]
+    );
+    const sentAt = values[headers.indexOf(SYSTEM_COLUMNS.sentAt)];
 
-    if (lastRow < 2) {
-      console.log('No submissions found.');
-      return;
+    if (
+      hasBeenSent(status, sentAt) ||
+      status === CERTIFICATE_STATUS.processing
+    ) {
+      return { processed: 0, sent: 0, failed: 0, skipped: true };
     }
 
-    const statusIndex = headers.indexOf(SYSTEM_COLUMNS.status);
-    const emailIndex = headers.indexOf(CONFIG.emailHeader);
-    const nameIndex = headers.indexOf(CONFIG.nameHeader);
-
-    const rows = sheet
-      .getRange(2, 1, lastRow - 1, headers.length)
-      .getDisplayValues();
-
-    let sent = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    rows.forEach((values, index) => {
-      const row = index + 2;
-
-      const status = String(values[statusIndex] ?? '')
-        .trim()
-        .toUpperCase();
-
-      const email = String(values[emailIndex] ?? '').trim();
-      const name = String(values[nameIndex] ?? '').trim();
-
-      // Ignore completely empty rows.
-      if (!email && !name) {
-        skipped++;
-        return;
-      }
-
-      // Already successfully generated and emailed.
-      if (status === 'SENT') {
-        skipped++;
-        return;
-      }
-
-      // Prevent continuing when Gmail quota is exhausted.
-      if (MailApp.getRemainingDailyQuota() < 1) {
-        console.warn(`Stopped at row ${row}: email quota exhausted.`);
-        return;
-      }
-
-      try {
-        // PROCESSING left behind by an interrupted execution
-        // can safely be retried while this script lock is held.
-        if (status === 'PROCESSING') {
-          setValue(
-            sheet,
-            headers,
-            row,
-            SYSTEM_COLUMNS.status,
-            ''
-          );
-        }
-
-        processRow(sheet, row);
-
-        const finalStatus = String(
-          sheet
-            .getRange(row, statusIndex + 1)
-            .getDisplayValue()
-        ).trim();
-
-        if (finalStatus === 'SENT') {
-          sent++;
-          console.log(`Row ${row}: SENT`);
-        } else {
-          failed++;
-          console.warn(`Row ${row}: ${finalStatus}`);
-        }
-      } catch (error) {
-        failed++;
-
-        console.error(
-          `Row ${row} failed:`,
-          error instanceof Error ? error.message : String(error)
-        );
-      }
-    });
-
-    console.log(
-      `Finished. Sent: ${sent}, Failed: ${failed}, Skipped: ${skipped}`
-    );
+    queueRow(sheet, headers, row);
   } finally {
     lock.releaseLock();
   }
+
+  return processCertificateQueue();
 }
