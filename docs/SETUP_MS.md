@@ -1,45 +1,47 @@
 # Panduan Persediaan
 
-Panduan ini menunjukkan cara menghasilkan dan menghantar sijil secara automatik menggunakan respons Google Form.
+Hasilkan dan hantar sijil PDF secara automatik daripada respons Google Form.
 
-Tiada pengetahuan pengaturcaraan diperlukan. Ikuti langkah satu per satu.
+Tiada pengetahuan pengaturcaraan diperlukan. Ikuti langkah mengikut turutan.
 
-English version: [Click here](SETUP.md)
+[English version](SETUP.md)
 
----
+## Cara Sistem Berfungsi
 
-## Sebelum Bermula
+**Google Form → Google Sheet → Baris gilir sijil → PDF → Google Drive → E-mel**
 
 Anda memerlukan:
 
-- Google Form untuk kehadiran atau pendaftaran.
-- Google Sheet yang disambungkan kepada Form tersebut.
-- Reka bentuk sijil dalam Google Slides.
-- Folder Google Drive untuk menyimpan sijil yang siap.
-- Akaun Google yang boleh menggunakan Google Apps Script.
-
-Sistem ini berfungsi seperti berikut:
-
-**Google Form → Google Sheet → Sijil PDF → Google Drive → E-mel**
+- Google Form
+- Google Sheet yang disambungkan kepada Form
+- Templat sijil Google Slides
+- Folder Google Drive untuk sijil yang siap
+- Akaun Google yang boleh menggunakan Apps Script
 
 ---
 
-## Langkah 1 — Sediakan Google Form
+## Langkah 1 — Sediakan Form dan Sheet
 
-Sediakan borang kehadiran seperti biasa.
-
-Ruangan yang disyorkan:
+Cipta Google Form anda. Soalan yang disyorkan:
 
 - Nama Penuh
 - No. Kad Pengenalan
 - Email
-- Apa-apa maklumat lain yang diperlukan
+- Maklumat lain yang diperlukan pada sijil
 
-Pastikan ruangan e-mel diwajibkan.
+Wajibkan soalan e-mel.
 
-### Pilihan: Semakan nombor Kad Pengenalan Malaysia
+Kemudian sambungkan Form kepada Sheet:
 
-Jika anda mahu Form menerima nombor Kad Pengenalan dengan atau tanpa tanda sempang, gunakan ungkapan berikut pada bahagian response validation:
+1. Buka tab **Responses** dalam Form.
+2. Klik **Link to Sheets**.
+3. Cipta spreadsheet baharu atau pilih yang sedia ada.
+
+Baris pertama mengandungi nama soalan. Skrip menggunakan nama ini secara tepat.
+
+### Pilihan: Semakan nombor Kad Pengenalan
+
+Untuk menerima nombor Kad Pengenalan dengan atau tanpa tanda sempang, tambah corak response validation ini pada Form:
 
 ```text
 ^\d{6}-?\d{2}-?\d{4}$
@@ -52,78 +54,28 @@ Contoh yang diterima:
 010203-11-0123
 ```
 
-Skrip boleh memaparkan kedua-dua format sebagai:
-
-```text
-010203-11-0123
-```
-
 ---
 
-## Langkah 2 — Sambungkan Form kepada Google Sheets
+## Langkah 2 — Sediakan Templat Slides
 
-Dalam Google Form:
+Cipta sijil dalam Google Slides dengan reka bentuk, logo, tandatangan dan teks anda.
 
-1. Buka **Responses**.
-2. Klik **Link to Sheets**.
-3. Cipta spreadsheet baharu atau pilih yang sedia ada.
+### Tambah maklumat peserta
 
-Baris pertama akan mengandungi nama soalan dalam Form, contohnya:
+Gunakan nama lajur Sheet yang tepat di dalam dua kurungan berlengkung:
 
-```text
-Timestamp | Nama Penuh | No. Kad Pengenalan | Email
-```
+| Lajur Sheet | Placeholder Slides |
+|---|---|
+| Nama Penuh | `{{Nama Penuh}}` |
+| No. Kad Pengenalan | `{{No. Kad Pengenalan}}` |
+| Email | `{{Email}}` |
+| Jawatan | `{{Jawatan}}` |
 
-Nama lajur ini penting kerana ia boleh digunakan terus dalam templat sijil.
+Ejaan, ruang dan huruf besar mesti sama seperti pengepala Sheet.
 
----
+### Tambah maklumat program
 
-## Langkah 3 — Sediakan Sijil dalam Google Slides
-
-Cipta sijil anda dalam Google Slides.
-
-Sediakan reka bentuk seperti biasa termasuk logo, tandatangan, latar belakang, teks dan maklumat lain.
-
-### Maklumat peserta
-
-Untuk memasukkan maklumat daripada Google Sheets ke dalam sijil, gunakan nama lajur Sheet yang tepat di dalam dua kurungan berlengkung.
-
-Contoh lajur dalam Sheet:
-
-```text
-Nama Penuh
-No. Kad Pengenalan
-Email
-Jawatan
-```
-
-Gunakan dalam Google Slides seperti berikut:
-
-```text
-{{Nama Penuh}}
-{{No. Kad Pengenalan}}
-{{Email}}
-{{Jawatan}}
-```
-
-Ejaan mesti sama seperti nama lajur dalam Sheet.
-
-Jika anda menambah soalan baharu dalam Form, anda juga boleh menggunakan nama lajur baharu itu sebagai placeholder tanpa mengubah skrip.
-
-#### Contoh Templat - Google Slides
-<img width="354" height="500" alt="Template Sijil" src="https://github.com/user-attachments/assets/473b34d3-6f75-41d6-91d7-646f7f17946b" />
-
----
-
-## Langkah 4 — Tambah Maklumat Tetap Program
-
-Sesetengah maklumat adalah sama untuk semua peserta, contohnya:
-
-- Nama program
-- Tarikh
-- Tempat
-
-Untuk maklumat seperti ini, gunakan format khas berikut:
+Gunakan placeholder ini untuk maklumat yang sama bagi semua peserta:
 
 ```text
 {{@nama_program@}}
@@ -131,111 +83,65 @@ Untuk maklumat seperti ini, gunakan format khas berikut:
 {{@tempat@}}
 ```
 
-Nilai sebenar akan ditetapkan kemudian dalam skrip.
+Anda akan memasukkan nilainya dalam `Code.gs` kemudian.
 
-Maklumat tetap ini akan digunakan terlebih dahulu sebelum maklumat daripada lajur Sheet. Jadi, nilai tetap masih akan digunakan walaupun terdapat nama lajur Sheet yang sama.
+### Contoh templat
 
----
-
-## Langkah 5 — Cipta Folder Google Drive
-
-Cipta satu folder dalam Google Drive untuk menyimpan sijil PDF yang siap.
-
-Contoh:
-
-```text
-Sijil Program XYZ
-```
-
-Buka folder tersebut dan lihat alamat pada pelayar.
-
-Contoh:
-
-```text
-https://drive.google.com/drive/folders/1AbCdEfGh123456
-```
-
-Bahagian selepas `/folders/` ialah **Folder ID**:
-
-```text
-1AbCdEfGh123456
-```
-
-Simpan ID ini untuk digunakan kemudian.
+<img width="354" height="500" alt="Template Sijil" src="https://github.com/user-attachments/assets/473b34d3-6f75-41d6-91d7-646f7f17946b" />
 
 ---
 
-## Langkah 6 — Salin Google Slides Template ID
+## Langkah 3 — Sediakan Google Drive
 
-Buka fail sijil Google Slides anda.
-
-Contoh alamat:
-
-```text
-https://docs.google.com/presentation/d/1XyZAbCdEf123456/edit
-```
-
-Bahagian antara `/d/` dan `/edit` ialah **Slides Template ID**:
+1. Cipta folder untuk menyimpan sijil PDF yang siap.
+2. Salin ID folder daripada alamatnya:
 
 ```text
-1XyZAbCdEf123456
+https://drive.google.com/drive/folders/FOLDER_ID
 ```
 
-Simpan ID ini bersama Folder ID tadi.
+3. Buka templat Slides dan salin ID-nya:
+
+```text
+https://docs.google.com/presentation/d/SLIDES_TEMPLATE_ID/edit
+```
+
+Simpan kedua-dua ID untuk Langkah 5.
 
 ---
 
-## Langkah 7 — Tambah Skrip Automasi
+## Langkah 4 — Tambah Skrip
 
-Buka Google Sheet yang disambungkan kepada Form.
+1. Buka Google Sheet yang disambungkan kepada Form.
+2. Klik **Extensions → Apps Script**.
+3. Padam kod contoh.
+4. Salin seluruh kandungan [`Code.gs`](../Code.gs).
+5. Tampal ke dalam Apps Script dan klik **Save**.
 
-Kemudian:
-
-1. Klik **Extensions**.
-2. Klik **Apps Script**.
-3. Padam kod contoh yang sedia ada.
-4. Buka [`Code.gs`](../Code.gs) daripada repositori ini.
-5. Salin keseluruhan kandungan.
-6. Tampal ke dalam Google Apps Script.
-7. Simpan projek.
-
-Anda **tidak perlu deploy** skrip ini.
+Jangan cipta deployment.
 
 ---
 
-## Langkah 8 — Ubah Tetapan
+## Langkah 5 — Ubah Tetapan
 
-Di bahagian atas `Code.gs`, anda akan nampak:
+Ubah hanya bahagian sebelum:
 
 ```javascript
-// ========================================
-// CHANGE THESE SETTINGS ONLY
-// ========================================
+// NO CHANGES NEEDED BELOW THIS LINE
 ```
 
-Untuk penggunaan biasa, ubah bahagian ini sahaja.
+### ID fail
 
-### Masukkan Google ID anda
-
-Gantikan:
+Gantikan nilai contoh dengan ID daripada Langkah 3:
 
 ```javascript
 templateId: 'YOUR_SLIDES_TEMPLATE_ID',
 outputFolderId: 'YOUR_OUTPUT_FOLDER_ID',
 ```
 
-kepada ID yang disalin sebelum ini.
+### Nama lajur Sheet
 
-Contoh:
-
-```javascript
-templateId: '1XyZAbCdEf123456',
-outputFolderId: '1AbCdEfGh123456',
-```
-
-### Semak nama lajur Sheet
-
-Nama berikut mesti sama seperti dalam Google Sheet anda:
+Pastikan nilai berikut sama tepat dengan pengepala Sheet:
 
 ```javascript
 emailHeader: 'Email',
@@ -243,71 +149,21 @@ nameHeader: 'Nama Penuh',
 icHeader: 'No. Kad Pengenalan',
 ```
 
-Jika Form anda menggunakan nama yang berbeza, ubah tetapan ini supaya sama.
-
-### Nombor sijil
-
-Contoh:
+### Nombor dan format sijil
 
 ```javascript
 certificatePrefix: 'CERT-2026',
-```
-
-Nombor sijil akan menjadi seperti:
-
-```text
-CERT-2026-0001
-CERT-2026-0002
-CERT-2026-0003
-```
-
-### Nama peserta dalam huruf besar
-
-```javascript
 uppercaseName: true,
-```
-
-Gunakan `true` untuk memaparkan nama peserta dalam huruf besar.
-
-Gunakan `false` untuk mengekalkan nama seperti yang dimasukkan oleh peserta.
-
-### Format Kad Pengenalan Malaysia
-
-```javascript
 formatMalaysianIc: true,
 ```
 
-Apabila diaktifkan:
+Ini menghasilkan ID sijil seperti `CERT-2026-0001`.
 
-```text
-010203110123
-```
+Gunakan `false` jika nama perlu dikekalkan seperti asal atau nombor Kad Pengenalan tidak perlu diformat.
 
-akan dipaparkan sebagai:
+### Maklumat program
 
-```text
-010203-11-0123
-```
-
-Gunakan `false` jika anda tidak mahu format ini digunakan secara automatik.
-
----
-
-## Langkah 9 — Tetapkan Nama Program, Tarikh dan Tempat
-
-Cari bahagian berikut:
-
-```javascript
-const TEMPLATE_CONSTANTS = {
-  nama_program: 'NAMA PROGRAM ANDA',
-  tarikh: '1 September 2026',
-  tempat: 'TEMPAT PROGRAM'
-};
-```
-
-Ubah nilai mengikut program anda.
-
-Contoh:
+Ubah nilai yang digunakan oleh placeholder tetap dalam Slides:
 
 ```javascript
 const TEMPLATE_CONSTANTS = {
@@ -317,293 +173,129 @@ const TEMPLATE_CONSTANTS = {
 };
 ```
 
-Kemudian gunakan dalam Google Slides:
+### E-mel
 
-```text
-{{@nama_program@}}
-{{@tarikh@}}
-{{@tempat@}}
-```
-
-Anda boleh menambah maklumat tetap lain jika perlu.
-
-Contoh:
-
-```javascript
-const TEMPLATE_CONSTANTS = {
-  nama_program: 'Kursus Pengurusan Data 2026',
-  tarikh: '15 September 2026',
-  tempat: 'Bilik Seminar Utama',
-  penganjur: 'Bahagian ABC'
-};
-```
-
-Kemudian gunakan:
-
-```text
-{{@penganjur@}}
-```
-
----
-
-## Langkah 10 — Semak Tetapan E-mel
-
-Anda boleh mengubah:
+Ubah nama pengirim dan tajuk:
 
 ```javascript
 senderName: 'Urus Setia Program',
-emailSubject: 'Sijil Penyertaan Program',
+emailSubject: 'Sijil Penyertaan Program'
 ```
 
-Ubah `EMAIL_TEMPLATE` berhampiran bahagian atas `Code.gs` untuk menukar mesej e-mel.
+Ubah teks dalam `EMAIL_TEMPLATE` untuk menukar mesej e-mel. Kekalkan kurungan, koma dan baris maklumat program dinamik kecuali anda memang mahu membuangnya.
 
-Mesej e-mel lalai ialah:
-
-```text
-Assalamualaikum / Salam sejahtera,
-
-Tuan/Puan,
-
-Dilampirkan ialah sijil penyertaan bagi program:
-
-Program: [Nama Program]
-Tarikh: [Tarikh]
-Tempat: [Tempat]
-
-Terima kasih.
-
-Urus Setia Program
-```
-
-Nama program, tarikh dan tempat akan diambil secara automatik daripada `TEMPLATE_CONSTANTS`.
+Simpan skrip selepas selesai.
 
 ---
 
-## Langkah 11 — Sediakan Automasi
+## Langkah 6 — Sediakan Automasi
 
-Menyimpan skrip sahaja belum mencukupi. Jalankan fungsi persediaan sekali untuk menghubungkan Sheet respons dan memasang trigger yang diperlukan.
-
-1. Kembali ke Sheet respons dan pastikan tabnya dipilih.
+1. Kembali ke Sheet respons dan pilih tabnya.
 2. Buka **Extensions → Apps Script**.
 3. Pilih `setupCertificateAutomation` daripada senarai fungsi.
 4. Klik **Run**.
-5. Log masuk menggunakan akaun Google yang memiliki atau mengurus fail tersebut.
-6. Benarkan akses yang diminta.
+5. Log masuk dan benarkan akses yang diminta.
 
-Fungsi persediaan akan mencipta trigger berikut jika trigger tersebut belum wujud:
+Fungsi ini memasang trigger penghantaran Form dan worker baris gilir setiap satu minit. Fungsi persediaan selamat dijalankan semula; trigger pendua tidak akan dicipta.
 
-```text
-onFormSubmit             → apabila Form dihantar
-processCertificateQueue  → setiap 1 minit
-```
-
-Anda boleh menjalankan fungsi persediaan semula tanpa mencipta trigger pendua. Anda **tidak perlu membuat deployment** atau menambah trigger secara manual.
-
-Respons baharu akan ditanda `QUEUED` serta-merta. Worker satu minit kemudian menghasilkan dan menghantar sijil dalam kelompok lima.
+Muat semula spreadsheet untuk memaparkan menu **> Auto Certificate <**.
 
 ---
 
-## Langkah 12 — Uji Sebelum Digunakan untuk Peserta
+## Langkah 7 — Uji Sebelum Digunakan
 
-Lakukan satu ujian menggunakan alamat e-mel anda sendiri.
+Hantar satu respons menggunakan alamat e-mel anda sendiri.
 
-1. Hantar Google Form.
-2. Tunggu respons muncul dalam Google Sheets.
-3. Pastikan `Certificate Status` mula-mula menunjukkan `QUEUED`.
-4. Tunggu sehingga beberapa minit untuk status berubah kepada `SENT`.
-5. Semak lajur status sijil.
-6. Semak folder sijil dalam Google Drive.
-7. Semak folder **Sent** dalam Gmail.
-8. Semak inbox e-mel yang digunakan untuk ujian.
-9. Buka PDF dan semak sijil dengan teliti.
+Pastikan:
 
-Semak terutamanya:
+1. Respons muncul dalam Sheet dengan status `QUEUED`.
+2. Status berubah kepada `SENT` selepas worker berjalan.
+3. PDF muncul dalam folder Drive yang dipilih.
+4. E-mel muncul dalam folder **Sent** Gmail dan peti masuk ujian.
+5. Nama, nombor sijil, tarikh dan susun atur PDF adalah betul.
 
-- Nama peserta
-- Nama peserta yang panjang
-- Format Kad Pengenalan
-- Nama program
-- Tarikh
-- Tempat
-- Nombor sijil
-- Logo dan tandatangan
-- Kedudukan teks
+Berikan beberapa minit untuk worker menyelesaikan proses.
 
 ---
 
-## Lajur Status Sijil
+## Menggunakan Automasi
 
-Skrip akan menambah lajur berikut secara automatik dalam Google Sheet:
+### Penunjuk penjanaan
 
-```text
-Certificate Status
-Certificate ID
-Certificate URL
-Certificate Sent At
-Certificate Error
-Certificate Processing Started At
-```
+Pengepala `Certificate Status` menunjukkan tetapan penjanaan semasa:
 
-Anda tidak perlu menambahnya secara manual.
+- Hijau — penjanaan sedang berjalan
+- Merah — penjanaan dihentikan
 
-### Maksud status
-
-| Status | Maksud |
-|---|---|
-| `QUEUED` | Respons sedang menunggu worker. |
-| `PROCESSING` | Sijil sedang disediakan. |
-| `SENT` | Sijil telah dihasilkan dan e-mel telah dihantar. |
-| `ERROR` | Berlaku masalah. Semak lajur `Certificate Error`. |
-
-Baris yang telah ditanda `SENT`, atau mempunyai masa penghantaran yang direkodkan, tidak akan dihantar semula secara automatik.
-
-Pengepala `Certificate Status` berwarna hijau semasa penjanaan berjalan dan merah apabila dihentikan. Respons masih diterima dan dimasukkan ke dalam baris gilir dalam kedua-dua keadaan.
+Respons Form tetap diterima dan dimasukkan ke dalam baris gilir dalam kedua-dua keadaan.
 
 ### Menu Auto Certificate
 
-Muat semula spreadsheet selepas persediaan untuk melihat menu **> Auto Certificate <**:
+| Menu | Tindakan |
+|---|---|
+| **▶️ Start Generating** | Mula memproses respons dalam baris gilir. |
+| **⏸️ Stop Generating** | Jeda pemprosesan baharu. Sijil semasa akan diselesaikan dahulu. |
+| **⚡ Process Queue Now** | Proses satu kelompok tanpa menunggu jadual seterusnya. |
+| **📊 Queue Status** | Paparkan keadaan penjanaan dan jumlah baris gilir. |
 
-- **▶️ Start Generating** — membenarkan worker memproses baris yang menunggu.
-- **⏸️ Stop Generating** — menjeda pemprosesan baharu; sijil semasa dibenarkan selesai.
-- **⚡ Process Queue Now** — menjalankan satu kelompok dengan segera apabila penjanaan diaktifkan.
-- **📊 Queue Status** — menunjukkan keadaan penjanaan dan jumlah setiap status.
+### Status sijil
 
-Menghentikan penjanaan tidak menolak respons baharu. Respons tersebut kekal `QUEUED` sehingga penjanaan dimulakan semula.
+| Status | Maksud |
+|---|---|
+| `QUEUED` | Menunggu untuk diproses. |
+| `PROCESSING` | Sijil sedang dihasilkan. |
+| `SENT` | PDF telah dicipta dan e-mel telah dihantar. |
+| `ERROR` | Proses gagal. Semak `Certificate Error`. |
 
----
+Skrip turut merekodkan ID sijil, URL PDF, masa penghantaran, ralat dan masa mula diproses. Sijil yang direkodkan sebagai telah dihantar tidak akan dihantar semula secara automatik.
 
-## Had Penghantaran E-mel
+### Cuba semula sijil yang gagal atau terlepas
 
-Google mengehadkan jumlah penerima e-mel yang boleh dihantar melalui Apps Script setiap hari.
-
-Had sebenar bergantung pada akaun Google anda.
-
-Untuk menyemak had akaun sendiri:
+Selepas membetulkan punca ralat:
 
 1. Buka Apps Script.
-2. Pilih fungsi `checkEmailQuota`.
+2. Pilih `regenerateMissingCertificates`.
 3. Klik **Run**.
-4. Buka execution log.
 
-Anda akan nampak sesuatu seperti:
+Fungsi ini mengembalikan baris yang gagal, terlepas atau tergendala kepada `QUEUED`. Sijil yang telah direkodkan sebagai dihantar tidak akan dimasukkan semula.
 
-```text
-Remaining email quota: 1500
-```
+### Had e-mel
 
-Gunakan nombor yang dipaparkan oleh akaun anda sebagai baki had sebenar untuk hari tersebut.
+Google mengehadkan jumlah penerima e-mel harian. Untuk menyemak baki, jalankan `checkEmailQuota` dalam Apps Script dan buka execution log.
 
----
-
-## Masalah Biasa
-
-### Certificate Status menunjukkan `SENT`, tetapi peserta tidak menerima e-mel
-
-Semak:
-
-1. Folder **Sent** dalam Gmail.
-2. Alamat e-mel peserta dalam Google Sheets.
-3. Folder Spam atau Junk peserta.
-4. Sama ada sistem e-mel organisasi melambatkan atau menapis mesej tersebut.
-
-Jika e-mel muncul dalam folder Sent anda, Google Apps Script telah menyerahkan e-mel tersebut kepada Gmail.
-
-### Nama atau maklumat lain tidak muncul pada sijil
-
-Pastikan placeholder dalam Google Slides sama tepat dengan nama lajur Sheet.
-
-Contoh:
-
-Sheet:
-
-```text
-Nama Penuh
-```
-
-Slides:
-
-```text
-{{Nama Penuh}}
-```
-
-Perbezaan ejaan yang kecil juga boleh menyebabkan maklumat tidak diganti.
-
-### Maklumat tetap program tidak muncul
-
-Pastikan format khas digunakan dengan betul.
-
-Contoh:
-
-```text
-{{@nama_program@}}
-```
-
-Pastikan juga `nama_program` wujud dalam `TEMPLATE_CONSTANTS`.
-
-### Certificate Status menunjukkan `ERROR`
-
-Semak lajur `Certificate Error` pada baris yang sama.
-
-Punca biasa termasuk:
-
-- Slides Template ID salah
-- Drive Folder ID salah
-- Lajur Sheet tiada
-- Alamat e-mel tidak sah
-- Masalah kebenaran Google
-
-Selepas membetulkan masalah, jalankan `regenerateMissingCertificates` melalui Apps Script. Fungsi ini menukar baris yang gagal, terlepas atau tergendala kembali kepada `QUEUED`; worker biasa akan melakukan percubaan semula. Baris yang telah direkodkan sebagai dihantar tidak akan dimasukkan semula.
-
-Jika had e-mel harian telah habis, worker akan berhenti dan membiarkan respons yang masih ada dalam baris gilir untuk diproses kemudian.
-
-### Google meminta kebenaran
-
-Ini adalah perkara biasa semasa persediaan kali pertama.
-
-Skrip memerlukan kebenaran untuk:
-
-- Membaca Sheet respons
-- Menyalin templat Google Slides
-- Mencipta fail PDF dalam Google Drive
-- Menghantar e-mel sijil
-
-Jika organisasi anda menyekat salah satu perkhidmatan Google ini, anda mungkin perlu menghubungi pentadbir Google Workspace organisasi.
+Apabila had habis, respons yang belum dihantar kekal dalam baris gilir untuk diproses kemudian.
 
 ---
 
-## Peringatan Privasi
+## Penyelesaian Masalah Ringkas
 
-Borang kehadiran mungkin mengandungi maklumat peribadi seperti:
+| Masalah | Semakan |
+|---|---|
+| Status ialah `ERROR` | Baca sel `Certificate Error` pada baris tersebut. |
+| Nama atau maklumat tiada dalam PDF | Pastikan placeholder Slides sama tepat dengan pengepala Sheet. |
+| Maklumat program tiada | Pastikan placeholder dan kekunci `TEMPLATE_CONSTANTS` adalah sama. |
+| PDF tidak dicipta | Semak ID templat, ID folder, kebenaran dan sel ralat. |
+| Status ialah `SENT`, tetapi e-mel tidak diterima | Semak folder **Sent** Gmail, alamat penerima dan Spam/Junk. |
+| Menu tidak dipaparkan | Muat semula spreadsheet selepas menjalankan persediaan. |
+| Baris kekal `QUEUED` | Mulakan penjanaan, kemudian semak **Queue Status**. |
 
-- Nama penuh
-- Alamat e-mel
-- Nombor Kad Pengenalan
-- Maklumat organisasi
+---
 
-Untuk keselamatan:
+## Privasi
 
-- Jangan jadikan Sheet respons sebagai public.
-- Jangan jadikan folder sijil dalam Google Drive sebagai public kecuali diperlukan.
-- Berikan akses hanya kepada pegawai yang memerlukannya.
-- Elakkan memaparkan nombor penuh Kad Pengenalan pada sijil kecuali diwajibkan oleh organisasi.
-- Jangan terbitkan repositori yang mengandungi maklumat peserta sebenar, Google file ID sebenar atau data program yang sulit.
+Respons Form mungkin mengandungi nama, alamat e-mel, nombor Kad Pengenalan dan maklumat peribadi lain.
 
-Fail `Code.gs` dalam repositori ini hanya mengandungi tetapan contoh. Simpan ID program sebenar dan maklumat peserta di dalam fail Google anda sendiri.
+- Pastikan Sheet respons dan folder sijil tidak dikongsi kepada umum.
+- Berikan akses hanya kepada kakitangan yang dibenarkan.
+- Elakkan meletakkan nombor Kad Pengenalan penuh pada sijil kecuali diperlukan.
+- Jangan terbitkan data peserta sebenar atau ID fail Google peribadi.
 
 ---
 
 ## Untuk Program Seterusnya
 
-Selepas persediaan pertama berjaya, program seterusnya menjadi lebih mudah.
-
-Biasanya anda hanya perlu:
-
-1. Sediakan Form baharu.
-2. Sediakan atau salin templat sijil Google Slides.
-3. Cipta folder output sijil baharu.
-4. Salin `Code.gs` ke Apps Script bagi Sheet respons baharu.
-5. Ubah ID dan maklumat program di bahagian atas.
-6. Jalankan `setupCertificateAutomation` sekali daripada Sheet respons.
-7. Hantar satu respons ujian.
-
-Selepas itu, proses sijil boleh berjalan secara automatik untuk program tersebut.
+1. Sediakan Form, templat Slides dan folder output baharu.
+2. Salin `Code.gs` ke dalam Sheet respons baharu.
+3. Ubah ID, nama lajur, maklumat program dan e-mel.
+4. Jalankan `setupCertificateAutomation` daripada Sheet respons.
+5. Hantar satu respons ujian sebelum berkongsi Form.

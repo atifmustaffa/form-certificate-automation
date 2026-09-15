@@ -1,129 +1,81 @@
 # Setup Guide
 
-This guide shows how to automatically create and email certificates using Google Form responses.
+Create and email PDF certificates automatically from Google Form responses.
 
 No programming knowledge is required. Follow the steps in order.
 
-Bahasa Malaysia version: [Click here](SETUP_MS.md)
+[Bahasa Malaysia version](SETUP_MS.md)
+
+## How It Works
+
+**Google Form → Google Sheet → Certificate queue → PDF → Google Drive → Email**
+
+You need:
+
+- A Google Form
+- Its linked Google Sheet
+- A Google Slides certificate template
+- A Google Drive folder for finished certificates
+- A Google account with access to Apps Script
 
 ---
 
-## Before You Start
+## Step 1 — Prepare the Form and Sheet
 
-You will need:
-
-- A Google Form for attendance or registration.
-- A Google Sheet linked to that Form.
-- A Google Slides certificate design.
-- A Google Drive folder for finished certificates.
-- A Google account that can use Google Apps Script.
-
-The system works like this:
-
-**Google Form → Google Sheet → Certificate PDF → Google Drive → Email**
-
----
-
-## Step 1 — Prepare the Google Form
-
-Create your attendance Form as usual.
-
-Recommended fields:
+Create your Google Form. Recommended questions:
 
 - Nama Penuh
 - No. Kad Pengenalan
 - Email
-- Any other information you need
+- Any other information needed on the certificate
 
-Make the email field required.
+Make the email question required.
+
+Then connect the Form to a Sheet:
+
+1. Open the Form's **Responses** tab.
+2. Click **Link to Sheets**.
+3. Create a new spreadsheet or select an existing one.
+
+The first row contains the question names. The script uses these names exactly.
 
 ### Optional: Malaysian IC validation
 
-If you want the Form to accept IC numbers with or without dashes, use this regular expression in response validation:
+To accept IC numbers with or without dashes, add this response validation pattern to the Form:
 
 ```text
 ^\d{6}-?\d{2}-?\d{4}$
 ```
 
-Examples accepted:
+Accepted examples:
 
 ```text
 010203110123
 010203-11-0123
 ```
 
-The script can later display both formats as:
-
-```text
-010203-11-0123
-```
-
 ---
 
-## Step 2 — Connect the Form to Google Sheets
+## Step 2 — Prepare the Slides Template
 
-In Google Form:
+Create your certificate in Google Slides with your preferred design, logos, signatures, and wording.
 
-1. Open **Responses**.
-2. Click **Link to Sheets**.
-3. Create a new spreadsheet, or choose an existing one.
+### Add participant information
 
-Your first row will contain the Form question names, for example:
+Use the exact Sheet column name inside double curly brackets:
 
-```text
-Timestamp | Nama Penuh | No. Kad Pengenalan | Email
-```
+| Sheet column | Slides placeholder |
+|---|---|
+| Nama Penuh | `{{Nama Penuh}}` |
+| No. Kad Pengenalan | `{{No. Kad Pengenalan}}` |
+| Email | `{{Email}}` |
+| Jawatan | `{{Jawatan}}` |
 
-These column names are important because they can be used directly in the certificate template.
+Spelling, spaces, and capital letters must match the Sheet header.
 
----
+### Add program information
 
-## Step 3 — Prepare the Certificate in Google Slides
-
-Create your certificate in Google Slides.
-
-Design it normally with your logo, signatures, background, wording, and other information.
-
-### Participant information
-
-To place information from Google Sheets onto the certificate, use the exact Sheet column name inside double curly brackets.
-
-Example Sheet columns:
-
-```text
-Nama Penuh
-No. Kad Pengenalan
-Email
-Jawatan
-```
-
-Use these in Google Slides:
-
-```text
-{{Nama Penuh}}
-{{No. Kad Pengenalan}}
-{{Email}}
-{{Jawatan}}
-```
-
-The wording must match the Sheet column name exactly.
-
-If you later add a new Form question, you can also use its Sheet column name as a new placeholder without changing the script.
-
-#### Example Template - Google Slides
-<img width="354" height="500" alt="Template Sijil" src="https://github.com/user-attachments/assets/473b34d3-6f75-41d6-91d7-646f7f17946b" />
-
----
-
-## Step 4 — Add Fixed Event Information
-
-Some information is the same for every participant, such as:
-
-- Program name
-- Date
-- Venue
-
-For these values, use the special fixed-information format:
+Use these placeholders for information shared by every participant:
 
 ```text
 {{@nama_program@}}
@@ -131,111 +83,65 @@ For these values, use the special fixed-information format:
 {{@tempat@}}
 ```
 
-You will set the actual values later in the script.
+You will enter their values in `Code.gs` later.
 
-These fixed values are checked before Sheet columns, so they will still be used even if a Sheet column accidentally has the same reserved name.
+### Example template
 
----
-
-## Step 5 — Create a Google Drive Folder
-
-Create a folder in Google Drive for the finished PDF certificates.
-
-Example:
-
-```text
-Program XYZ Certificates
-```
-
-Open the folder and look at the browser address.
-
-Example:
-
-```text
-https://drive.google.com/drive/folders/1AbCdEfGh123456
-```
-
-The part after `/folders/` is the **Folder ID**:
-
-```text
-1AbCdEfGh123456
-```
-
-Keep this ID for later.
+<img width="354" height="500" alt="Template Sijil" src="https://github.com/user-attachments/assets/473b34d3-6f75-41d6-91d7-646f7f17946b" />
 
 ---
 
-## Step 6 — Copy the Google Slides Template ID
+## Step 3 — Prepare Google Drive
 
-Open your certificate Google Slides file.
-
-Example address:
-
-```text
-https://docs.google.com/presentation/d/1XyZAbCdEf123456/edit
-```
-
-The part between `/d/` and `/edit` is the **Slides Template ID**:
+1. Create a folder for the finished PDF certificates.
+2. Copy the folder ID from its address:
 
 ```text
-1XyZAbCdEf123456
+https://drive.google.com/drive/folders/FOLDER_ID
 ```
 
-Keep this ID together with your Folder ID.
+3. Open the Slides template and copy its ID:
+
+```text
+https://docs.google.com/presentation/d/SLIDES_TEMPLATE_ID/edit
+```
+
+Keep both IDs for Step 5.
 
 ---
 
-## Step 7 — Add the Automation Script
+## Step 4 — Add the Script
 
-Open the Google Sheet linked to your Form.
+1. Open the Google Sheet linked to the Form.
+2. Click **Extensions → Apps Script**.
+3. Delete the sample code.
+4. Copy the full contents of [`Code.gs`](../Code.gs).
+5. Paste it into Apps Script and click **Save**.
 
-Then:
-
-1. Click **Extensions**.
-2. Click **Apps Script**.
-3. Delete the default sample code.
-4. Open [`Code.gs`](../Code.gs) from this repository.
-5. Copy the full contents.
-6. Paste it into Google Apps Script.
-7. Save the project.
-
-You do **not** need to deploy the script.
+Do not create a deployment.
 
 ---
 
-## Step 8 — Change the Settings
+## Step 5 — Change the Settings
 
-At the top of `Code.gs`, you will see:
+Only edit the section above:
 
 ```javascript
-// ========================================
-// CHANGE THESE SETTINGS ONLY
-// ========================================
+// NO CHANGES NEEDED BELOW THIS LINE
 ```
 
-For normal use, only change this section.
+### File IDs
 
-### Add your Google IDs
-
-Replace:
+Replace the example values with the IDs from Step 3:
 
 ```javascript
 templateId: 'YOUR_SLIDES_TEMPLATE_ID',
 outputFolderId: 'YOUR_OUTPUT_FOLDER_ID',
 ```
 
-with the IDs copied earlier.
+### Sheet column names
 
-Example:
-
-```javascript
-templateId: '1XyZAbCdEf123456',
-outputFolderId: '1AbCdEfGh123456',
-```
-
-### Check your Sheet column names
-
-These must exactly match your Google Sheet:
+Make these values match your Sheet headers exactly:
 
 ```javascript
 emailHeader: 'Email',
@@ -243,71 +149,21 @@ nameHeader: 'Nama Penuh',
 icHeader: 'No. Kad Pengenalan',
 ```
 
-If your Form uses different wording, change the settings to match it.
-
-### Certificate number
-
-Example:
+### Certificate number and formatting
 
 ```javascript
 certificatePrefix: 'CERT-2026',
-```
-
-Certificates will look like:
-
-```text
-CERT-2026-0001
-CERT-2026-0002
-CERT-2026-0003
-```
-
-### Uppercase participant name
-
-```javascript
 uppercaseName: true,
-```
-
-Use `true` to display the participant name in uppercase.
-
-Use `false` to keep the name as entered.
-
-### Malaysian IC formatting
-
-```javascript
 formatMalaysianIc: true,
 ```
 
-When enabled:
+This produces certificate IDs such as `CERT-2026-0001`.
 
-```text
-010203110123
-```
+Use `false` if names should keep their original case or IC numbers should not be formatted.
 
-will be displayed as:
+### Program information
 
-```text
-010203-11-0123
-```
-
-Set it to `false` if you do not want automatic IC formatting.
-
----
-
-## Step 9 — Set the Program Name, Date and Venue
-
-Find this section:
-
-```javascript
-const TEMPLATE_CONSTANTS = {
-  nama_program: 'NAMA PROGRAM ANDA',
-  tarikh: '1 September 2026',
-  tempat: 'TEMPAT PROGRAM'
-};
-```
-
-Change the values for your event.
-
-Example:
+Update the values used by the fixed Slides placeholders:
 
 ```javascript
 const TEMPLATE_CONSTANTS = {
@@ -317,293 +173,129 @@ const TEMPLATE_CONSTANTS = {
 };
 ```
 
-Then use these in Google Slides:
+### Email
 
-```text
-{{@nama_program@}}
-{{@tarikh@}}
-{{@tempat@}}
-```
-
-You may add more fixed values if needed.
-
-Example:
-
-```javascript
-const TEMPLATE_CONSTANTS = {
-  nama_program: 'Kursus Pengurusan Data 2026',
-  tarikh: '15 September 2026',
-  tempat: 'Bilik Seminar Utama',
-  penganjur: 'Bahagian ABC'
-};
-```
-
-Then use:
-
-```text
-{{@penganjur@}}
-```
-
----
-
-## Step 10 — Check the Email Settings
-
-You can change:
+Update the sender name and subject:
 
 ```javascript
 senderName: 'Urus Setia Program',
-emailSubject: 'Sijil Penyertaan Program',
+emailSubject: 'Sijil Penyertaan Program'
 ```
 
-Edit `EMAIL_TEMPLATE` near the top of `Code.gs` to change the email message.
+Edit the text inside `EMAIL_TEMPLATE` to change the email message. Keep the brackets, commas, and dynamic program lines unless you intentionally want to remove them.
 
-The default email message is:
-
-```text
-Assalamualaikum / Salam sejahtera,
-
-Tuan/Puan,
-
-Dilampirkan ialah sijil penyertaan bagi program:
-
-Program: [Nama Program]
-Tarikh: [Tarikh]
-Tempat: [Tempat]
-
-Terima kasih.
-
-Urus Setia Program
-```
-
-The program name, date and venue are taken automatically from `TEMPLATE_CONSTANTS`.
+Save the script when finished.
 
 ---
 
-## Step 11 — Set Up the Automation
+## Step 6 — Set Up the Automation
 
-Saving the script alone is not enough. Run the setup function once to connect the response Sheet and install the required triggers.
-
-1. Return to the response Sheet and make sure its tab is selected.
+1. Return to the response Sheet and select its tab.
 2. Open **Extensions → Apps Script**.
 3. Select `setupCertificateAutomation` from the function list.
 4. Click **Run**.
-5. Sign in using the Google account that owns or manages the files.
-6. Allow the requested permissions.
+5. Sign in and allow the requested permissions.
 
-The setup function safely creates these triggers if they do not already exist:
+This installs the Form submission trigger and the one-minute queue worker. It is safe to run the setup function again; duplicate triggers are not created.
 
-```text
-onFormSubmit             → when the Form is submitted
-processCertificateQueue  → every 1 minute
-```
-
-You can run the setup function again without creating duplicate triggers. You do **not** need to create a deployment or add triggers manually.
-
-New submissions are marked `QUEUED` immediately. The one-minute worker then generates and sends certificates in batches of five.
+Reload the spreadsheet to display the **> Auto Certificate <** menu.
 
 ---
 
-## Step 12 — Test Before Using It for Participants
+## Step 7 — Test Before Going Live
 
-Do one test using your own email address.
+Submit one response using your own email address.
 
-1. Submit the Google Form.
-2. Wait for the response to appear in Google Sheets.
-3. Confirm that `Certificate Status` first shows `QUEUED`.
-4. Wait up to a few minutes for it to change to `SENT`.
-5. Check the certificate tracking columns.
-6. Check your Google Drive certificate folder.
-7. Check your Gmail **Sent** folder.
-8. Check the email inbox you used for testing.
-9. Open the PDF and check the certificate carefully.
+Check that:
 
-Check especially:
+1. The response appears in the Sheet as `QUEUED`.
+2. Its status changes to `SENT` after the worker runs.
+3. The PDF appears in the selected Drive folder.
+4. The email appears in Gmail **Sent** and in the test inbox.
+5. Names, certificate numbers, dates, and layout look correct in the PDF.
 
-- Participant name
-- Long participant names
-- IC formatting
-- Program name
-- Date
-- Venue
-- Certificate number
-- Logos and signatures
-- Text position
+Allow a few minutes for the queue worker to finish.
 
 ---
 
-## Certificate Tracking Columns
+## Using the Automation
 
-The script automatically adds these columns to the Google Sheet:
+### Generation indicator
 
-```text
-Certificate Status
-Certificate ID
-Certificate URL
-Certificate Sent At
-Certificate Error
-Certificate Processing Started At
-```
+The `Certificate Status` header shows the current generation setting:
 
-You do not need to create them manually.
+- Green — generation is running
+- Red — generation is stopped
 
-### What the status means
-
-| Status | Meaning |
-|---|---|
-| `QUEUED` | The response is waiting for the worker. |
-| `PROCESSING` | The certificate is currently being prepared. |
-| `SENT` | The certificate was created and the email was sent successfully. |
-| `ERROR` | Something went wrong. Check the `Certificate Error` column. |
-
-Rows already marked `SENT`, or with a recorded sent time, will not be sent again automatically.
-
-The `Certificate Status` header is green while generation is running and red while stopped. Submissions continue to be accepted and queued in either state.
+Form submissions are accepted and queued in both states.
 
 ### Auto Certificate menu
 
-Reload the spreadsheet after setup to see the **> Auto Certificate <** menu:
+| Menu item | Action |
+|---|---|
+| **▶️ Start Generating** | Starts processing queued responses. |
+| **⏸️ Stop Generating** | Pauses new processing. The current certificate finishes first. |
+| **⚡ Process Queue Now** | Processes one batch without waiting for the next scheduled run. |
+| **📊 Queue Status** | Shows the generation state and queue totals. |
 
-- **▶️ Start Generating** — allows the worker to process queued rows.
-- **⏸️ Stop Generating** — pauses new processing; the current certificate is allowed to finish.
-- **⚡ Process Queue Now** — runs one batch immediately while generation is enabled.
-- **📊 Queue Status** — shows the generation state and status totals.
+### Certificate statuses
 
-Stopping generation does not reject submissions. New responses remain `QUEUED` until generation is started again.
+| Status | Meaning |
+|---|---|
+| `QUEUED` | Waiting to be processed. |
+| `PROCESSING` | Certificate generation is in progress. |
+| `SENT` | PDF created and email sent. |
+| `ERROR` | Processing failed. Read `Certificate Error`. |
 
----
+The script also records the certificate ID, PDF URL, sent time, error, and processing start time. A certificate recorded as sent is not sent again automatically.
 
-## Email Sending Limit
+### Retry failed or missing certificates
 
-Google limits how many email recipients can be sent through Apps Script each day.
-
-The exact limit depends on your Google account.
-
-To check your own account:
+After fixing the cause of an error:
 
 1. Open Apps Script.
-2. Choose the function `checkEmailQuota`.
+2. Select `regenerateMissingCertificates`.
 3. Click **Run**.
-4. Open the execution log.
 
-You will see something similar to:
+The function returns failed, missing, and stale rows to `QUEUED`. It does not requeue certificates already recorded as sent.
 
-```text
-Remaining email quota: 1500
-```
+### Email quota
 
-Use the number shown by your own account as the actual remaining limit for that day.
+Google limits daily email recipients. To check the remaining quota, run `checkEmailQuota` in Apps Script and open the execution log.
 
----
-
-## Common Problems
-
-### Certificate Status says `SENT`, but the participant says no email arrived
-
-Check:
-
-1. Gmail **Sent** folder.
-2. The participant email address in Google Sheets.
-3. The participant's Spam or Junk folder.
-4. Whether the organisation's email system delayed or filtered the message.
-
-If the email appears in your Sent folder, Google Apps Script successfully handed the email to Gmail.
-
-### Name or other information is not appearing on the certificate
-
-Check that the Google Slides placeholder exactly matches the Sheet column name.
-
-Example:
-
-Sheet:
-
-```text
-Nama Penuh
-```
-
-Slides:
-
-```text
-{{Nama Penuh}}
-```
-
-Even small spelling differences can stop the replacement.
-
-### Fixed event information is not appearing
-
-Check that the special format is correct.
-
-Example:
-
-```text
-{{@nama_program@}}
-```
-
-Also check that `nama_program` exists inside `TEMPLATE_CONSTANTS`.
-
-### Certificate Status says `ERROR`
-
-Look at the `Certificate Error` column in the same row.
-
-Common causes include:
-
-- Wrong Slides Template ID
-- Wrong Drive Folder ID
-- Missing Sheet column
-- Invalid email address
-- Google permission problem
-
-After correcting the problem, run `regenerateMissingCertificates` from Apps Script. It changes failed, missing, and stale rows back to `QUEUED`; the normal worker performs the retry. It never requeues rows already recorded as sent.
-
-If the daily email quota is exhausted, the worker stops and leaves remaining submissions queued for a later run.
-
-### Google asks for permission
-
-This is normal the first time the automation is set up.
-
-The script needs permission to:
-
-- Read the response Sheet
-- Copy the Google Slides template
-- Create PDF files in Google Drive
-- Send certificate emails
-
-If your organisation blocks one of these Google services, you may need to contact your Google Workspace administrator.
+When the quota is exhausted, unsent responses remain queued for a later run.
 
 ---
 
-## Privacy Reminder
+## Quick Troubleshooting
 
-Attendance Forms may contain personal information such as:
+| Problem | Check |
+|---|---|
+| Status is `ERROR` | Read the `Certificate Error` cell in that row. |
+| Name or field is missing from the PDF | Confirm the Slides placeholder exactly matches the Sheet header. |
+| Program information is missing | Confirm the placeholder and `TEMPLATE_CONSTANTS` key match. |
+| No PDF is created | Check the template ID, folder ID, permissions, and error cell. |
+| Status is `SENT`, but no email arrived | Check Gmail **Sent**, the recipient address, and Spam/Junk. |
+| Menu is missing | Reload the spreadsheet after running setup. |
+| Rows remain `QUEUED` | Start generation, then check **Queue Status**. |
 
-- Full names
-- Email addresses
-- IC numbers
-- Organisation details
+---
 
-For safety:
+## Privacy
 
-- Do not make the response Sheet public.
-- Do not make the certificate Drive folder public unless necessary.
-- Only give access to staff who need it.
-- Avoid displaying full IC numbers on certificates unless your organisation requires it.
-- Do not publish a repository containing real participant information, Google file IDs, or private event data.
+Form responses may contain names, email addresses, IC numbers, and other personal information.
 
-The `Code.gs` file in this repository contains example settings only. Keep your real event IDs and participant information inside your own Google files.
+- Keep the response Sheet and certificate folder private.
+- Give access only to authorised staff.
+- Avoid placing full IC numbers on certificates unless required.
+- Never publish real participant data or private Google file IDs.
 
 ---
 
 ## For the Next Event
 
-Once the first setup works, future events are much easier.
-
-Normally you only need to:
-
-1. Prepare the new Form.
-2. Prepare or copy the certificate Slides template.
-3. Create a new certificate output folder.
-4. Copy `Code.gs` into the new response Sheet.
-5. Change the IDs and event information at the top.
-6. Run `setupCertificateAutomation` once from the response Sheet.
-7. Submit one test response.
-
-Then the certificate process can run automatically for the event.
+1. Prepare the new Form, Slides template, and output folder.
+2. Copy `Code.gs` into the new response Sheet.
+3. Update the IDs, column names, program information, and email.
+4. Run `setupCertificateAutomation` from the response Sheet.
+5. Submit one test response before sharing the Form.
