@@ -34,6 +34,23 @@ const TEMPLATE_CONSTANTS = {
   tempat: 'TEMPAT PROGRAM'
 };
 
+// Email message sent with every certificate.
+const EMAIL_TEMPLATE = [
+  'Assalamualaikum / Salam sejahtera,',
+  '',
+  'Tuan/Puan,',
+  '',
+  'Dilampirkan ialah sijil penyertaan bagi program:',
+  '',
+  `Program: ${TEMPLATE_CONSTANTS.nama_program}`,
+  `Tarikh: ${TEMPLATE_CONSTANTS.tarikh}`,
+  `Tempat: ${TEMPLATE_CONSTANTS.tempat}`,
+  '',
+  'Terima kasih.',
+  '',
+  CONFIG.senderName
+].join('\n');
+
 // ========================================
 // NO CHANGES NEEDED BELOW THIS LINE
 // ========================================
@@ -65,6 +82,11 @@ const SCRIPT_PROPERTIES = {
   sheetId: 'CERTIFICATE_SHEET_ID'
 };
 
+const GENERATION_INDICATOR = {
+  runningBackground: '#b7e1cd',
+  stoppedBackground: '#f4c7c3'
+};
+
 function setupCertificateAutomation() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = spreadsheet.getActiveSheet();
@@ -78,6 +100,8 @@ function setupCertificateAutomation() {
   if (properties.getProperty(SCRIPT_PROPERTIES.generationEnabled) === null) {
     properties.setProperty(SCRIPT_PROPERTIES.generationEnabled, 'true');
   }
+
+  updateCertificateStatusIndicator(sheet);
 
   const handlers = ScriptApp
     .getProjectTriggers()
@@ -109,12 +133,12 @@ function setupCertificateAutomation() {
 function onOpen() {
   SpreadsheetApp
     .getUi()
-    .createMenu('Certificate')
-    .addItem('Start Generating', 'startCertificateGeneration')
-    .addItem('Stop Generating', 'stopCertificateGeneration')
+    .createMenu('> Auto Certificate <')
+    .addItem('▶️ Start Generating', 'startCertificateGeneration')
+    .addItem('⏸️ Stop Generating', 'stopCertificateGeneration')
     .addSeparator()
-    .addItem('Process Queue Now', 'processQueueNow')
-    .addItem('Queue Status', 'showQueueStatus')
+    .addItem('⚡ Process Queue Now', 'processQueueNow')
+    .addItem('📊 Queue Status', 'showQueueStatus')
     .addToUi();
 }
 
@@ -178,12 +202,13 @@ function processCertificateQueue() {
     stopped: false
   };
 
+  const sheet = getResponseSheet();
+  updateCertificateStatusIndicator(sheet);
+
   if (!isCertificateGenerationEnabled()) {
     summary.stopped = true;
     return summary;
   }
-
-  const sheet = getResponseSheet();
 
   for (let index = 0; index < QUEUE_CONFIG.batchSize; index++) {
     if (!isCertificateGenerationEnabled()) {
@@ -426,26 +451,10 @@ function processRow(sheet, row) {
       pdfFile.getUrl()
     );
 
-    const emailBody = [
-      'Assalamualaikum / Salam sejahtera,',
-      '',
-      'Tuan/Puan,',
-      '',
-      'Dilampirkan ialah sijil penyertaan bagi program:',
-      '',
-      `Program: ${TEMPLATE_CONSTANTS.nama_program}`,
-      `Tarikh: ${TEMPLATE_CONSTANTS.tarikh}`,
-      `Tempat: ${TEMPLATE_CONSTANTS.tempat}`,
-      '',
-      'Terima kasih.',
-      '',
-      CONFIG.senderName
-    ].join('\n');
-
     MailApp.sendEmail({
       to: email,
       subject: CONFIG.emailSubject,
-      body: emailBody,
+      body: EMAIL_TEMPLATE,
       name: CONFIG.senderName,
       attachments: [pdfBlob]
     });
@@ -494,6 +503,8 @@ function startCertificateGeneration() {
     .getScriptProperties()
     .setProperty(SCRIPT_PROPERTIES.generationEnabled, 'true');
 
+  updateCertificateStatusIndicator(getResponseSheet());
+
   SpreadsheetApp
     .getActiveSpreadsheet()
     .toast('Certificate generation started.', 'Certificate', 5);
@@ -503,6 +514,8 @@ function stopCertificateGeneration() {
   PropertiesService
     .getScriptProperties()
     .setProperty(SCRIPT_PROPERTIES.generationEnabled, 'false');
+
+  updateCertificateStatusIndicator(getResponseSheet());
 
   SpreadsheetApp
     .getActiveSpreadsheet()
@@ -527,7 +540,7 @@ function processQueueNow() {
 function showQueueStatus() {
   const sheet = getResponseSheet();
   const counts = getQueueCounts(sheet);
-  const state = isCertificateGenerationEnabled() ? 'ON' : 'OFF';
+  const state = isCertificateGenerationEnabled() ? 'ON ✅' : 'OFF 🛑';
 
   SpreadsheetApp.getUi().alert(
     [
@@ -829,6 +842,34 @@ function isCertificateGenerationEnabled() {
   return PropertiesService
     .getScriptProperties()
     .getProperty(SCRIPT_PROPERTIES.generationEnabled) !== 'false';
+}
+
+function updateCertificateStatusIndicator(sheet) {
+  const headers = getHeaders(sheet);
+  const statusIndex = headers.indexOf(SYSTEM_COLUMNS.status);
+
+  if (statusIndex === -1) {
+    throw new Error(
+      `Sheet column not found: ${SYSTEM_COLUMNS.status}`
+    );
+  }
+
+  const enabled = isCertificateGenerationEnabled();
+  const background = enabled
+    ? GENERATION_INDICATOR.runningBackground
+    : GENERATION_INDICATOR.stoppedBackground;
+  const note = enabled
+    ? 'Certificate generation is RUNNING.'
+    : 'Certificate generation is STOPPED.';
+  const cell = sheet.getRange(1, statusIndex + 1);
+
+  if (cell.getBackground() !== background) {
+    cell.setBackground(background);
+  }
+
+  if (cell.getNote() !== note) {
+    cell.setNote(note);
+  }
 }
 
 function hasBeenSent(status, sentAt) {
