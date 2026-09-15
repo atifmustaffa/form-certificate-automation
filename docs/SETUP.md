@@ -355,6 +355,8 @@ senderName: 'Urus Setia Program',
 emailSubject: 'Sijil Penyertaan Program',
 ```
 
+Edit `EMAIL_TEMPLATE` near the top of `Code.gs` to change the email message.
+
 The default email message is:
 
 ```text
@@ -455,14 +457,16 @@ You do not need to create them manually.
 
 Rows already marked `SENT`, or with a recorded sent time, will not be sent again automatically.
 
-### Certificate menu
+The `Certificate Status` header is green while generation is running and red while stopped. Submissions continue to be accepted and queued in either state.
 
-Reload the spreadsheet after setup to see the **Certificate** menu:
+### Auto Certificate menu
 
-- **Start Generating** — allows the worker to process queued rows.
-- **Stop Generating** — pauses new processing; the current certificate is allowed to finish.
-- **Process Queue Now** — runs one batch immediately while generation is enabled.
-- **Queue Status** — shows the generation state and status totals.
+Reload the spreadsheet after setup to see the **> Auto Certificate <** menu:
+
+- **▶️ Start Generating** — allows the worker to process queued rows.
+- **⏸️ Stop Generating** — pauses new processing; the current certificate is allowed to finish.
+- **⚡ Process Queue Now** — runs one batch immediately while generation is enabled.
+- **📊 Queue Status** — shows the generation state and status totals.
 
 Stopping generation does not reject submissions. New responses remain `QUEUED` until generation is started again.
 

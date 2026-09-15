@@ -355,6 +355,8 @@ senderName: 'Urus Setia Program',
 emailSubject: 'Sijil Penyertaan Program',
 ```
 
+Ubah `EMAIL_TEMPLATE` berhampiran bahagian atas `Code.gs` untuk menukar mesej e-mel.
+
 Mesej e-mel lalai ialah:
 
 ```text
@@ -455,14 +457,16 @@ Anda tidak perlu menambahnya secara manual.
 
 Baris yang telah ditanda `SENT`, atau mempunyai masa penghantaran yang direkodkan, tidak akan dihantar semula secara automatik.
 
-### Menu Certificate
+Pengepala `Certificate Status` berwarna hijau semasa penjanaan berjalan dan merah apabila dihentikan. Respons masih diterima dan dimasukkan ke dalam baris gilir dalam kedua-dua keadaan.
 
-Muat semula spreadsheet selepas persediaan untuk melihat menu **Certificate**:
+### Menu Auto Certificate
 
-- **Start Generating** — membenarkan worker memproses baris yang menunggu.
-- **Stop Generating** — menjeda pemprosesan baharu; sijil semasa dibenarkan selesai.
-- **Process Queue Now** — menjalankan satu kelompok dengan segera apabila penjanaan diaktifkan.
-- **Queue Status** — menunjukkan keadaan penjanaan dan jumlah setiap status.
+Muat semula spreadsheet selepas persediaan untuk melihat menu **> Auto Certificate <**:
+
+- **▶️ Start Generating** — membenarkan worker memproses baris yang menunggu.
+- **⏸️ Stop Generating** — menjeda pemprosesan baharu; sijil semasa dibenarkan selesai.
+- **⚡ Process Queue Now** — menjalankan satu kelompok dengan segera apabila penjanaan diaktifkan.
+- **📊 Queue Status** — menunjukkan keadaan penjanaan dan jumlah setiap status.
 
 Menghentikan penjanaan tidak menolak respons baharu. Respons tersebut kekal `QUEUED` sehingga penjanaan dimulakan semula.
 
