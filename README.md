@@ -2,14 +2,16 @@
 
 Automatically create and email certificates from Google Form responses.
 
-When a participant submits the form, the system can automatically:
+When a participant submits the form, the system queues the response and automatically:
 
-1. Read the participant's details from Google Sheets.
-2. Add the details to a Google Slides certificate template.
-3. Create the certificate as a PDF.
-4. Save the PDF to Google Drive.
-5. Email the certificate to the participant.
-6. Record the sending status in Google Sheets.
+1. Reads the participant's details from Google Sheets.
+2. Adds the details to a Google Slides certificate template.
+3. Creates the certificate as a PDF.
+4. Saves the PDF to Google Drive.
+5. Emails the certificate to the participant.
+6. Records the sending status in Google Sheets.
+
+A time-driven worker processes the queue in small batches, so simultaneous submissions do not block each other.
 
 No more copying names, creating PDFs, and sending certificates one by one.
 
@@ -35,7 +37,9 @@ The setup guide is written for normal Google users. No programming knowledge is 
 
 ## Main Features
 
-- Automatically generates certificates after a form submission.
+- Queues every form submission for reliable background processing.
+- Processes certificates in small batches every minute.
+- Lets administrators start, stop, inspect, or manually process the queue from Google Sheets.
 - Uses your own Google Slides certificate design.
 - Automatically emails the PDF certificate.
 - Saves a copy of every certificate in Google Drive.
@@ -56,7 +60,7 @@ The setup guide is written for normal Google users. No programming knowledge is 
 
 Cipta dan hantar sijil secara automatik melalui e-mel berdasarkan respons Google Form.
 
-Apabila peserta menghantar borang, sistem boleh secara automatik:
+Apabila peserta menghantar borang, sistem memasukkan respons ke dalam baris gilir dan secara automatik:
 
 1. Membaca maklumat peserta daripada Google Sheets.
 2. Memasukkan maklumat tersebut ke dalam templat sijil Google Slides.
@@ -64,6 +68,8 @@ Apabila peserta menghantar borang, sistem boleh secara automatik:
 4. Menyimpan PDF ke Google Drive.
 5. Menghantar sijil kepada peserta melalui e-mel.
 6. Merekod status penghantaran dalam Google Sheets.
+
+Worker berjadual memproses baris gilir dalam kelompok kecil supaya penghantaran serentak tidak saling menyekat.
 
 Tidak perlu lagi menyalin nama, menghasilkan PDF, dan menghantar sijil satu per satu.
 
@@ -89,7 +95,9 @@ Panduan ini ditulis untuk pengguna Google biasa. Tiada pengetahuan pengaturcaraa
 
 ## Fungsi Utama
 
-- Menghasilkan sijil secara automatik selepas borang dihantar.
+- Memasukkan setiap respons Form ke dalam baris gilir untuk pemprosesan latar yang lebih andal.
+- Memproses sijil dalam kelompok kecil setiap minit.
+- Membolehkan pentadbir memulakan, menghentikan, menyemak atau memproses baris gilir melalui Google Sheets.
 - Menggunakan reka bentuk sijil Google Slides anda sendiri.
 - Menghantar sijil PDF secara automatik melalui e-mel.
 - Menyimpan salinan setiap sijil dalam Google Drive.

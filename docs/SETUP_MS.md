@@ -377,31 +377,27 @@ Nama program, tarikh dan tempat akan diambil secara automatik daripada `TEMPLATE
 
 ---
 
-## Langkah 11 — Aktifkan Penghantaran Automatik
+## Langkah 11 — Sediakan Automasi
 
-Menyimpan skrip sahaja belum mencukupi. Anda perlu memberitahu Google supaya menjalankan sistem secara automatik apabila Form dihantar.
+Menyimpan skrip sahaja belum mencukupi. Jalankan fungsi persediaan sekali untuk menghubungkan Sheet respons dan memasang trigger yang diperlukan.
 
-Dalam Google Apps Script:
+1. Kembali ke Sheet respons dan pastikan tabnya dipilih.
+2. Buka **Extensions → Apps Script**.
+3. Pilih `setupCertificateAutomation` daripada senarai fungsi.
+4. Klik **Run**.
+5. Log masuk menggunakan akaun Google yang memiliki atau mengurus fail tersebut.
+6. Benarkan akses yang diminta.
 
-1. Klik ikon **Triggers** di sebelah kiri.
-2. Klik **Add Trigger**.
-3. Pilih tetapan berikut:
+Fungsi persediaan akan mencipta trigger berikut jika trigger tersebut belum wujud:
 
 ```text
-Function: onFormSubmit
-Deployment: Head
-Event source: From spreadsheet
-Event type: On form submit
+onFormSubmit             → apabila Form dihantar
+processCertificateQueue  → setiap 1 minit
 ```
 
-4. Klik **Save**.
-5. Google akan meminta kebenaran.
-6. Log masuk menggunakan akaun Google yang memiliki atau mengurus fail tersebut.
-7. Benarkan akses yang diperlukan.
+Anda boleh menjalankan fungsi persediaan semula tanpa mencipta trigger pendua. Anda **tidak perlu membuat deployment** atau menambah trigger secara manual.
 
-Anda **tidak perlu membuat deployment**.
-
-Trigger ini memberitahu Google supaya menjalankan sistem sijil secara automatik setiap kali seseorang menghantar Form.
+Respons baharu akan ditanda `QUEUED` serta-merta. Worker satu minit kemudian menghasilkan dan menghantar sijil dalam kelompok lima.
 
 ---
 
@@ -411,11 +407,13 @@ Lakukan satu ujian menggunakan alamat e-mel anda sendiri.
 
 1. Hantar Google Form.
 2. Tunggu respons muncul dalam Google Sheets.
-3. Semak lajur status sijil yang baharu.
-4. Semak folder sijil dalam Google Drive.
-5. Semak folder **Sent** dalam Gmail.
-6. Semak inbox e-mel yang digunakan untuk ujian.
-7. Buka PDF dan semak sijil dengan teliti.
+3. Pastikan `Certificate Status` mula-mula menunjukkan `QUEUED`.
+4. Tunggu sehingga beberapa minit untuk status berubah kepada `SENT`.
+5. Semak lajur status sijil.
+6. Semak folder sijil dalam Google Drive.
+7. Semak folder **Sent** dalam Gmail.
+8. Semak inbox e-mel yang digunakan untuk ujian.
+9. Buka PDF dan semak sijil dengan teliti.
 
 Semak terutamanya:
 
@@ -441,6 +439,7 @@ Certificate ID
 Certificate URL
 Certificate Sent At
 Certificate Error
+Certificate Processing Started At
 ```
 
 Anda tidak perlu menambahnya secara manual.
@@ -449,11 +448,23 @@ Anda tidak perlu menambahnya secara manual.
 
 | Status | Maksud |
 |---|---|
+| `QUEUED` | Respons sedang menunggu worker. |
 | `PROCESSING` | Sijil sedang disediakan. |
 | `SENT` | Sijil telah dihasilkan dan e-mel telah dihantar. |
 | `ERROR` | Berlaku masalah. Semak lajur `Certificate Error`. |
 
-Baris yang telah ditanda `SENT` tidak akan dihantar semula secara automatik.
+Baris yang telah ditanda `SENT`, atau mempunyai masa penghantaran yang direkodkan, tidak akan dihantar semula secara automatik.
+
+### Menu Certificate
+
+Muat semula spreadsheet selepas persediaan untuk melihat menu **Certificate**:
+
+- **Start Generating** — membenarkan worker memproses baris yang menunggu.
+- **Stop Generating** — menjeda pemprosesan baharu; sijil semasa dibenarkan selesai.
+- **Process Queue Now** — menjalankan satu kelompok dengan segera apabila penjanaan diaktifkan.
+- **Queue Status** — menunjukkan keadaan penjanaan dan jumlah setiap status.
+
+Menghentikan penjanaan tidak menolak respons baharu. Respons tersebut kekal `QUEUED` sehingga penjanaan dimulakan semula.
 
 ---
 
@@ -536,7 +547,10 @@ Punca biasa termasuk:
 - Lajur Sheet tiada
 - Alamat e-mel tidak sah
 - Masalah kebenaran Google
-- Had e-mel harian telah dicapai
+
+Selepas membetulkan masalah, jalankan `regenerateMissingCertificates` melalui Apps Script. Fungsi ini menukar baris yang gagal, terlepas atau tergendala kembali kepada `QUEUED`; worker biasa akan melakukan percubaan semula. Baris yang telah direkodkan sebagai dihantar tidak akan dimasukkan semula.
+
+Jika had e-mel harian telah habis, worker akan berhenti dan membiarkan respons yang masih ada dalam baris gilir untuk diproses kemudian.
 
 ### Google meminta kebenaran
 
@@ -585,7 +599,7 @@ Biasanya anda hanya perlu:
 3. Cipta folder output sijil baharu.
 4. Salin `Code.gs` ke Apps Script bagi Sheet respons baharu.
 5. Ubah ID dan maklumat program di bahagian atas.
-6. Tambah trigger `onFormSubmit`.
+6. Jalankan `setupCertificateAutomation` sekali daripada Sheet respons.
 7. Hantar satu respons ujian.
 
 Selepas itu, proses sijil boleh berjalan secara automatik untuk program tersebut.

@@ -377,31 +377,27 @@ The program name, date and venue are taken automatically from `TEMPLATE_CONSTANT
 
 ---
 
-## Step 11 — Turn On Automatic Sending
+## Step 11 — Set Up the Automation
 
-Saving the script alone is not enough. You must tell Google to run it automatically when the Form is submitted.
+Saving the script alone is not enough. Run the setup function once to connect the response Sheet and install the required triggers.
 
-In Google Apps Script:
+1. Return to the response Sheet and make sure its tab is selected.
+2. Open **Extensions → Apps Script**.
+3. Select `setupCertificateAutomation` from the function list.
+4. Click **Run**.
+5. Sign in using the Google account that owns or manages the files.
+6. Allow the requested permissions.
 
-1. Click the **Triggers** icon on the left.
-2. Click **Add Trigger**.
-3. Choose these settings:
+The setup function safely creates these triggers if they do not already exist:
 
 ```text
-Function: onFormSubmit
-Deployment: Head
-Event source: From spreadsheet
-Event type: On form submit
+onFormSubmit             → when the Form is submitted
+processCertificateQueue  → every 1 minute
 ```
 
-4. Click **Save**.
-5. Google will ask for permission.
-6. Sign in using the Google account that owns or manages the files.
-7. Allow the required permissions.
+You can run the setup function again without creating duplicate triggers. You do **not** need to create a deployment or add triggers manually.
 
-You do **not** need to create a deployment.
-
-This trigger tells Google to run the certificate system automatically whenever someone submits the Form.
+New submissions are marked `QUEUED` immediately. The one-minute worker then generates and sends certificates in batches of five.
 
 ---
 
@@ -411,11 +407,13 @@ Do one test using your own email address.
 
 1. Submit the Google Form.
 2. Wait for the response to appear in Google Sheets.
-3. Check the new certificate tracking columns.
-4. Check your Google Drive certificate folder.
-5. Check your Gmail **Sent** folder.
-6. Check the email inbox you used for testing.
-7. Open the PDF and check the certificate carefully.
+3. Confirm that `Certificate Status` first shows `QUEUED`.
+4. Wait up to a few minutes for it to change to `SENT`.
+5. Check the certificate tracking columns.
+6. Check your Google Drive certificate folder.
+7. Check your Gmail **Sent** folder.
+8. Check the email inbox you used for testing.
+9. Open the PDF and check the certificate carefully.
 
 Check especially:
 
@@ -441,6 +439,7 @@ Certificate ID
 Certificate URL
 Certificate Sent At
 Certificate Error
+Certificate Processing Started At
 ```
 
 You do not need to create them manually.
@@ -449,11 +448,23 @@ You do not need to create them manually.
 
 | Status | Meaning |
 |---|---|
+| `QUEUED` | The response is waiting for the worker. |
 | `PROCESSING` | The certificate is currently being prepared. |
 | `SENT` | The certificate was created and the email was sent successfully. |
 | `ERROR` | Something went wrong. Check the `Certificate Error` column. |
 
-Rows already marked `SENT` will not be automatically sent again.
+Rows already marked `SENT`, or with a recorded sent time, will not be sent again automatically.
+
+### Certificate menu
+
+Reload the spreadsheet after setup to see the **Certificate** menu:
+
+- **Start Generating** — allows the worker to process queued rows.
+- **Stop Generating** — pauses new processing; the current certificate is allowed to finish.
+- **Process Queue Now** — runs one batch immediately while generation is enabled.
+- **Queue Status** — shows the generation state and status totals.
+
+Stopping generation does not reject submissions. New responses remain `QUEUED` until generation is started again.
 
 ---
 
@@ -536,7 +547,10 @@ Common causes include:
 - Missing Sheet column
 - Invalid email address
 - Google permission problem
-- Daily email limit reached
+
+After correcting the problem, run `regenerateMissingCertificates` from Apps Script. It changes failed, missing, and stale rows back to `QUEUED`; the normal worker performs the retry. It never requeues rows already recorded as sent.
+
+If the daily email quota is exhausted, the worker stops and leaves remaining submissions queued for a later run.
 
 ### Google asks for permission
 
@@ -585,7 +599,7 @@ Normally you only need to:
 3. Create a new certificate output folder.
 4. Copy `Code.gs` into the new response Sheet.
 5. Change the IDs and event information at the top.
-6. Add the `onFormSubmit` trigger.
+6. Run `setupCertificateAutomation` once from the response Sheet.
 7. Submit one test response.
 
 Then the certificate process can run automatically for the event.
